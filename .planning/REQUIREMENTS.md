@@ -111,48 +111,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STOR-01 | — | Pending |
-| STOR-02 | — | Pending |
-| STOR-03 | — | Pending |
-| STOR-04 | — | Pending |
-| STOR-05 | — | Pending |
-| STOR-06 | — | Pending |
-| PARM-01 | — | Pending |
-| PARM-02 | — | Pending |
-| PARM-03 | — | Pending |
-| PARM-04 | — | Pending |
-| PARM-05 | — | Pending |
-| PARM-06 | — | Pending |
-| SRCH-01 | — | Pending |
-| SRCH-02 | — | Pending |
-| SRCH-03 | — | Pending |
-| PICK-01 | — | Pending |
-| PICK-02 | — | Pending |
-| PICK-03 | — | Pending |
-| PICK-04 | — | Pending |
-| MTUI-01 | — | Pending |
-| MTUI-02 | — | Pending |
-| MTUI-03 | — | Pending |
-| MTUI-04 | — | Pending |
-| SHEL-01 | — | Pending |
-| SHEL-02 | — | Pending |
-| SHEL-03 | — | Pending |
-| SHEL-04 | — | Pending |
-| SHEL-05 | — | Pending |
-| ORGN-01 | — | Pending |
-| ORGN-02 | — | Pending |
-| ORGN-03 | — | Pending |
-| AIFL-01 | — | Pending |
-| AIFL-02 | — | Pending |
-| AIFL-03 | — | Pending |
-| IMPT-01 | — | Pending |
-| IMPT-02 | — | Pending |
+| STOR-01 | Phase 1 | Pending |
+| STOR-02 | Phase 1 | Pending |
+| STOR-03 | Phase 1 | Pending |
+| STOR-04 | Phase 1 | Pending |
+| STOR-05 | Phase 4 | Pending |
+| STOR-06 | Phase 1 | Pending |
+| PARM-01 | Phase 1 | Pending |
+| PARM-02 | Phase 1 | Pending |
+| PARM-03 | Phase 4 | Pending |
+| PARM-04 | Phase 4 | Pending |
+| PARM-05 | Phase 1 | Pending |
+| PARM-06 | Phase 2 | Pending |
+| SRCH-01 | Phase 2 | Pending |
+| SRCH-02 | Phase 2 | Pending |
+| SRCH-03 | Phase 2 | Pending |
+| PICK-01 | Phase 2 | Pending |
+| PICK-02 | Phase 2 | Pending |
+| PICK-03 | Phase 2 | Pending |
+| PICK-04 | Phase 2 | Pending |
+| MTUI-01 | Phase 3 | Pending |
+| MTUI-02 | Phase 3 | Pending |
+| MTUI-03 | Phase 3 | Pending |
+| MTUI-04 | Phase 3 | Pending |
+| SHEL-01 | Phase 2 | Pending |
+| SHEL-02 | Phase 2 | Pending |
+| SHEL-03 | Phase 2 | Pending |
+| SHEL-04 | Phase 6 | Pending |
+| SHEL-05 | Phase 2 | Pending |
+| ORGN-01 | Phase 1 | Pending |
+| ORGN-02 | Phase 1 | Pending |
+| ORGN-03 | Phase 6 | Pending |
+| AIFL-01 | Phase 5 | Pending |
+| AIFL-02 | Phase 5 | Pending |
+| AIFL-03 | Phase 5 | Pending |
+| IMPT-01 | Phase 4 | Pending |
+| IMPT-02 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 36 total
-- Mapped to phases: 0
-- Unmapped: 36
+- Mapped to phases: 36
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-19 after initial definition*
+*Last updated: 2026-02-19 after roadmap creation*
