@@ -31,7 +31,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can run `wf rm` and delete a workflow, with the YAML file removed from disk
   4. User can save a multiline command as a single workflow and retrieve it intact (no YAML corruption)
   5. User can define `{{named}}` parameters with defaults in a workflow, and the template engine parses them correctly (including reuse of the same parameter name)
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+  - [ ] 01-01-PLAN.md — Go scaffold + Workflow model + YAML store with Norway Problem protection
+  - [ ] 01-02-PLAN.md — Template engine (parser + renderer) via TDD
+  - [ ] 01-03-PLAN.md — CLI commands (wf add, wf edit, wf rm)
+  - [ ] 01-04-PLAN.md — Integration tests + wf list + final verification
 
 ### Phase 2: Quick Picker & Shell Integration
 **Goal**: Users can invoke a fuzzy picker via keybinding, search across all workflows, fill parameters inline, and have the completed command pasted into their active shell prompt
@@ -94,7 +99,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Data Layer | 0/0 | Not started | - |
+| 1. Foundation & Data Layer | 0/4 | Planned | - |
 | 2. Quick Picker & Shell Integration | 0/0 | Not started | - |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
