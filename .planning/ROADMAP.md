@@ -48,7 +48,12 @@ Plans:
   3. User can select a workflow, fill parameters inline with the full command visible, and the completed command is pasted into their shell prompt
   4. Picker launches in under 100ms with 100+ workflows loaded
   5. User can install shell integration via `wf init zsh/bash/fish` and the binary works standalone on macOS, Linux, and Windows without shell integration
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+  - [ ] 02-01-PLAN.md — Install Phase 2 deps + search/filter TDD (fuzzy, tag prefix, WorkflowSource)
+  - [ ] 02-02-PLAN.md — Picker TUI model (StateSearch + StateParamFill + styles)
+  - [ ] 02-03-PLAN.md — Shell integration scripts (zsh/bash/fish) + wf init command
+  - [ ] 02-04-PLAN.md — wf pick command + clipboard + cross-compile + end-to-end verification
 
 ### Phase 3: Management TUI
 **Goal**: Users can launch a full-screen TUI to create, edit, delete, and browse workflows organized by folders and tags, with a customizable theme
@@ -100,7 +105,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
-| 2. Quick Picker & Shell Integration | 0/0 | Not started | - |
+| 2. Quick Picker & Shell Integration | 0/4 | Planned | - |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
 | 5. AI Integration | 0/0 | Not started | - |
