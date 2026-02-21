@@ -34,7 +34,7 @@ func (s *YAMLStore) Save(w *Workflow) error {
 		return fmt.Errorf("marshalling workflow: %w", err)
 	}
 
-	fpath := s.workflowPath(w.Name)
+	fpath := s.WorkflowPath(w.Name)
 
 	// Ensure parent directory exists (for nested paths like "infra/deploy")
 	dir := filepath.Dir(fpath)
@@ -52,7 +52,7 @@ func (s *YAMLStore) Save(w *Workflow) error {
 // Get retrieves a workflow by name.
 // The name can include a path prefix (e.g., "infra/deploy").
 func (s *YAMLStore) Get(name string) (*Workflow, error) {
-	fpath := s.workflowPath(name)
+	fpath := s.WorkflowPath(name)
 
 	data, err := os.ReadFile(fpath)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *YAMLStore) List() ([]Workflow, error) {
 
 // Delete removes a workflow file by name.
 func (s *YAMLStore) Delete(name string) error {
-	fpath := s.workflowPath(name)
+	fpath := s.WorkflowPath(name)
 
 	if _, err := os.Stat(fpath); os.IsNotExist(err) {
 		return fmt.Errorf("workflow %q not found", name)
@@ -131,9 +131,9 @@ func (s *YAMLStore) Delete(name string) error {
 	return nil
 }
 
-// workflowPath resolves the filesystem path for a workflow name.
+// WorkflowPath resolves the filesystem path for a workflow name.
 // Names can include path separators for folder organization (e.g., "infra/deploy").
-func (s *YAMLStore) workflowPath(name string) string {
+func (s *YAMLStore) WorkflowPath(name string) string {
 	// If name contains a path separator, use it as a subdirectory
 	if strings.Contains(name, "/") {
 		parts := strings.SplitN(name, "/", -1)
