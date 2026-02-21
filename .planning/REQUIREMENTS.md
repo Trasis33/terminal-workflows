@@ -9,20 +9,20 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Workflow Storage
 
-- [ ] **STOR-01**: User can create a new workflow with command, description, and tags
-- [ ] **STOR-02**: User can edit an existing workflow's command, description, tags, and arguments
-- [ ] **STOR-03**: User can delete a workflow
-- [ ] **STOR-04**: User can save multiline commands as a single workflow
+- [x] **STOR-01**: User can create a new workflow with command, description, and tags
+- [x] **STOR-02**: User can edit an existing workflow's command, description, tags, and arguments
+- [x] **STOR-03**: User can delete a workflow
+- [x] **STOR-04**: User can save multiline commands as a single workflow
 - [ ] **STOR-05**: User can register the previous shell command as a new workflow
-- [ ] **STOR-06**: Workflows are stored as human-readable YAML files in `~/.config/wf/`
+- [x] **STOR-06**: Workflows are stored as human-readable YAML files in `~/.config/wf/`
 
 ### Parameters
 
-- [ ] **PARM-01**: User can define `{{named}}` parameters in workflow commands
-- [ ] **PARM-02**: User can set default values for parameters
+- [x] **PARM-01**: User can define `{{named}}` parameters in workflow commands
+- [x] **PARM-02**: User can set default values for parameters
 - [ ] **PARM-03**: User can define enum parameters with predefined option lists
 - [ ] **PARM-04**: User can define dynamic parameters populated by shell command output
-- [ ] **PARM-05**: Named parameters used multiple times in a command auto-fill from a single input
+- [x] **PARM-05**: Named parameters used multiple times in a command auto-fill from a single input
 - [ ] **PARM-06**: User fills parameters inline with the full command visible
 
 ### Search
@@ -55,8 +55,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Organization
 
-- [ ] **ORGN-01**: User can assign tags to workflows
-- [ ] **ORGN-02**: User can organize workflows in folders on disk
+- [x] **ORGN-01**: User can assign tags to workflows
+- [x] **ORGN-02**: User can organize workflows in folders on disk
 - [ ] **ORGN-03**: User can share workflow collections via git
 
 ### AI Features
@@ -111,17 +111,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STOR-01 | Phase 1 | Pending |
-| STOR-02 | Phase 1 | Pending |
-| STOR-03 | Phase 1 | Pending |
-| STOR-04 | Phase 1 | Pending |
+| STOR-01 | Phase 1 | Complete |
+| STOR-02 | Phase 1 | Complete |
+| STOR-03 | Phase 1 | Complete |
+| STOR-04 | Phase 1 | Complete |
 | STOR-05 | Phase 4 | Pending |
-| STOR-06 | Phase 1 | Pending |
-| PARM-01 | Phase 1 | Pending |
-| PARM-02 | Phase 1 | Pending |
+| STOR-06 | Phase 1 | Complete |
+| PARM-01 | Phase 1 | Complete |
+| PARM-02 | Phase 1 | Complete |
 | PARM-03 | Phase 4 | Pending |
 | PARM-04 | Phase 4 | Pending |
-| PARM-05 | Phase 1 | Pending |
+| PARM-05 | Phase 1 | Complete |
 | PARM-06 | Phase 2 | Pending |
 | SRCH-01 | Phase 2 | Pending |
 | SRCH-02 | Phase 2 | Pending |
@@ -139,8 +139,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHEL-03 | Phase 2 | Pending |
 | SHEL-04 | Phase 6 | Pending |
 | SHEL-05 | Phase 2 | Pending |
-| ORGN-01 | Phase 1 | Pending |
-| ORGN-02 | Phase 1 | Pending |
+| ORGN-01 | Phase 1 | Complete |
+| ORGN-02 | Phase 1 | Complete |
 | ORGN-03 | Phase 6 | Pending |
 | AIFL-01 | Phase 5 | Pending |
 | AIFL-02 | Phase 5 | Pending |
