@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
   - [x] 01-01-PLAN.md — Go scaffold + Workflow model + YAML store with Norway Problem protection
   - [x] 01-02-PLAN.md — Template engine (parser + renderer) via TDD
-  - [ ] 01-03-PLAN.md — CLI commands (wf add, wf edit, wf rm)
+  - [x] 01-03-PLAN.md — CLI commands (wf add, wf edit, wf rm)
   - [ ] 01-04-PLAN.md — Integration tests + wf list + final verification
 
 ### Phase 2: Quick Picker & Shell Integration
@@ -99,7 +99,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Data Layer | 2/4 | In progress | - |
+| 1. Foundation & Data Layer | 3/4 | In progress | - |
 | 2. Quick Picker & Shell Integration | 0/0 | Not started | - |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
