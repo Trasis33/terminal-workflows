@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/fredriklanga/wf/internal/config"
+	"github.com/fredriklanga/wf/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -15,4 +17,21 @@ parameterized command templates directly from the terminal.
 Save complex commands as reusable workflows with named parameters,
 then find and paste them to your prompt in under 3 seconds.`,
 	Version: version,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return config.EnsureDir()
+	},
+}
+
+var yamlStore *store.YAMLStore
+
+func init() {
+	rootCmd.AddCommand(addCmd)
+}
+
+// getStore returns the shared YAMLStore instance, creating it if needed.
+func getStore() *store.YAMLStore {
+	if yamlStore == nil {
+		yamlStore = store.NewYAMLStore(config.WorkflowsDir())
+	}
+	return yamlStore
 }
