@@ -1,0 +1,21 @@
+# Binaries
+/wf
+*.exe
+*.dll
+*.so
+*.dylib
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test binary
+*.test
+
+# Output
+*.out
