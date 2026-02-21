@@ -12,7 +12,7 @@ wf goes from zero to a fully usable terminal workflow manager in 6 phases. The f
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation & Data Layer** - YAML storage, template engine, and project scaffold
+- [x] **Phase 1: Foundation & Data Layer** - YAML storage, template engine, and project scaffold
 - [ ] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
 - [ ] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
 - [ ] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
@@ -36,7 +36,7 @@ Plans:
   - [x] 01-01-PLAN.md — Go scaffold + Workflow model + YAML store with Norway Problem protection
   - [x] 01-02-PLAN.md — Template engine (parser + renderer) via TDD
   - [x] 01-03-PLAN.md — CLI commands (wf add, wf edit, wf rm)
-  - [ ] 01-04-PLAN.md — Integration tests + wf list + final verification
+  - [x] 01-04-PLAN.md — Integration tests + wf list + final verification
 
 ### Phase 2: Quick Picker & Shell Integration
 **Goal**: Users can invoke a fuzzy picker via keybinding, search across all workflows, fill parameters inline, and have the completed command pasted into their active shell prompt
@@ -99,7 +99,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Data Layer | 3/4 | In progress | - |
+| 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 0/0 | Not started | - |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
