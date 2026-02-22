@@ -2,7 +2,9 @@ package picker
 
 import (
 	"strings"
+	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,6 +23,9 @@ const (
 	// StateParamFill is the parameter fill state for parameterized workflows.
 	StateParamFill
 )
+
+// clearFlashMsg is sent after a timer to clear the flash message.
+type clearFlashMsg struct{}
 
 // SearchResult pairs a fuzzy match with its originating Workflow.
 type SearchResult struct {
@@ -47,6 +52,9 @@ type Model struct {
 
 	// Result is the final output command, read by caller after tea.Quit.
 	Result string
+
+	// Flash message (brief feedback, e.g. "Copied!")
+	flashMsg string
 
 	// Layout
 	width      int
@@ -98,6 +106,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updatePreview()
 		return m, nil
 
+	case clearFlashMsg:
+		m.flashMsg = ""
+		return m, nil
+
 	case tea.KeyMsg:
 		switch m.state {
 		case StateSearch:
@@ -147,6 +159,20 @@ func (m Model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		initParamFill(&m)
 		m.state = StateParamFill
 		return m, nil
+
+	case "ctrl+y":
+		if len(m.results) == 0 {
+			return m, nil
+		}
+		cmd := m.results[m.cursor].Workflow.Command
+		if err := clipboard.WriteAll(cmd); err != nil {
+			m.flashMsg = "✗ clipboard error"
+		} else {
+			m.flashMsg = "✓ Copied!"
+		}
+		return m, tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
+			return clearFlashMsg{}
+		})
 
 	default:
 		var cmd tea.Cmd
@@ -244,7 +270,11 @@ func (m Model) viewSearch() string {
 	}
 
 	// Hints
-	sections = append(sections, hintStyle.Render("  ↑↓ navigate  enter select  esc quit"))
+	if m.flashMsg != "" {
+		sections = append(sections, hintStyle.Render("  "+m.flashMsg))
+	} else {
+		sections = append(sections, hintStyle.Render("  ↑↓ navigate  enter select  ctrl+y copy  esc quit"))
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
