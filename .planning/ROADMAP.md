@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Data Layer** - YAML storage, template engine, and project scaffold
 - [x] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
-- [ ] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
+- [x] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
 - [ ] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
 - [ ] **Phase 5: AI Integration** - Copilot SDK workflow generation and metadata auto-fill
 - [ ] **Phase 6: Distribution & Sharing** - Cross-platform binary, shell completions, git-based sharing
@@ -67,10 +67,10 @@ Plans:
 **Plans:** 5 plans
 Plans:
   - [x] 03-01-PLAN.md — Theme system, keybindings, root model scaffold, public API
-  - [ ] 03-02-PLAN.md — Browse view with sidebar (folders/tags), workflow list, preview pane, fuzzy search
-  - [ ] 03-03-PLAN.md — Create/edit form view using huh form library
-  - [ ] 03-04-PLAN.md — Dialog overlays (delete, folder ops, move) and theme settings view
-  - [ ] 03-05-PLAN.md — Cobra command wiring (`wf manage`) and end-to-end verification
+  - [x] 03-02-PLAN.md — Browse view with sidebar (folders/tags), workflow list, preview pane, fuzzy search
+  - [x] 03-03-PLAN.md — Create/edit form view using huh form library
+  - [x] 03-04-PLAN.md — Dialog overlays (delete, folder ops, move) and theme settings view
+  - [x] 03-05-PLAN.md — Cobra command wiring (`wf manage`) and end-to-end verification
 
 ### Phase 4: Advanced Parameters & Import
 **Goal**: Users can use enum and dynamic parameters in workflows, register previous shell commands as workflows, and import existing collections from Pet and Warp formats
@@ -112,7 +112,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
-| 3. Management TUI | 1/5 | 🔧 In progress | - |
+| 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
 | 5. AI Integration | 0/0 | Not started | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
