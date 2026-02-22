@@ -53,7 +53,7 @@ Plans:
   - [x] 02-01-PLAN.md — Install Phase 2 deps + search/filter TDD (fuzzy, tag prefix, WorkflowSource)
   - [x] 02-02-PLAN.md — Picker TUI model (StateSearch + StateParamFill + styles)
   - [x] 02-03-PLAN.md — Shell integration scripts (zsh/bash/fish) + wf init command
-  - [ ] 02-04-PLAN.md — wf pick command + clipboard + cross-compile + end-to-end verification
+  - [x] 02-04-PLAN.md — wf pick command + clipboard + cross-compile + end-to-end verification
 
 ### Phase 3: Management TUI
 **Goal**: Users can launch a full-screen TUI to create, edit, delete, and browse workflows organized by folders and tags, with a customizable theme
@@ -105,7 +105,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
-| 2. Quick Picker & Shell Integration | 3/4 | In progress | - |
+| 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
 | 5. AI Integration | 0/0 | Not started | - |

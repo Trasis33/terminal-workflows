@@ -5,34 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 2 in progress — Quick Picker & Shell Integration
+**Current focus:** Phase 2 complete — Ready for Phase 3 (Management TUI)
 
 ## Current Position
 
 Phase: 2 of 6 (Quick Picker & Shell Integration)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-22 — Completed 02-03-PLAN.md (Shell Integration Scripts)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-02-22 — Completed 02-04-PLAN.md (wf pick + clipboard + cross-compile)
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100% (of defined plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: ~4 minutes
-- Total execution time: ~0.5 hours
+- Total execution time: ~0.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Foundation | 4/4 ✅ | ~20 min | ~5 min |
-| 2. Quick Picker | 3/4 | ~10 min | ~3 min |
+| 2. Quick Picker | 4/4 ✅ | ~25 min | ~6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 ✅, 01-04 ✅, 02-01 ✅, 02-02 ✅, 02-03 ✅
-- Trend: Consistent ~3-5 min/plan
+- Last 5 plans: 01-04 ✅, 02-01 ✅, 02-02 ✅, 02-03 ✅, 02-04 ✅
+- Trend: Consistent ~3-6 min/plan
 
 *Updated after each plan completion*
 
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - [02-02-D4] Enter on non-last param advances to next — reduces friction
 - [02-03-D1] Ctrl+G as default keybinding — overrides readline's rarely-used "abort" in bash, safe in zsh/fish
 - [02-03-D2] Replace existing prompt text (atuin approach) — wf outputs complete commands, not fragments
+- [02-04-D1] Use /dev/tty for TUI output instead of fd swap — ZLE redirects fds before subprocess starts
+- [02-04-D2] Ctrl+Y for in-picker clipboard copy with flash message
+- [02-04-D3] Fallback to os.Stderr if /dev/tty unavailable (Windows compatibility)
 
 ### Pending Todos
 
@@ -75,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22T09:27:30Z
-Stopped at: Committed 02-02-PLAN.md (Picker TUI Model) — Phase 2 plan 3/4 complete
+Last session: 2026-02-22
+Stopped at: Completed 02-04-PLAN.md — Phase 2 complete (4/4 plans)
 Resume file: None
