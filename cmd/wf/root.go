@@ -29,6 +29,7 @@ func init() {
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(rmCmd)
 	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(initCmd)
 }
 
 // getStore returns the shared YAMLStore instance, creating it if needed.
