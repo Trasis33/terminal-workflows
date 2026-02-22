@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 1 complete — ready for Phase 2 (Quick Picker & Shell Integration)
+**Current focus:** Phase 2 in progress — Quick Picker & Shell Integration
 
 ## Current Position
 
-Phase: 1 of 6 (Foundation & Data Layer) — COMPLETE
-Plan: 4 of 4 in current phase
-Status: Phase complete
-Last activity: 2026-02-21 — Completed 01-04-PLAN.md (Integration Tests + wf list)
+Phase: 2 of 6 (Quick Picker & Shell Integration)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-22 — Completed 02-01-PLAN.md (Fuzzy Search with Tag Filter TDD)
 
-Progress: [████░░░░░░] 25%
+Progress: [██████░░░░] 63%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: ~5 minutes
 - Total execution time: ~0.4 hours
 
@@ -28,10 +28,11 @@ Progress: [████░░░░░░] 25%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Foundation | 4/4 ✅ | ~20 min | ~5 min |
+| 2. Quick Picker | 1/4 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 ✅, 01-02 ✅, 01-03 ✅, 01-04 ✅
-- Trend: Consistent ~5 min/plan
+- Last 5 plans: 01-02 ✅, 01-03 ✅, 01-04 ✅, 02-01 ✅
+- Trend: Consistent ~4-5 min/plan
 
 *Updated after each plan completion*
 
@@ -55,6 +56,7 @@ Recent decisions affecting current work:
 - [01-03-D3] Re-extract template params when command field is updated via wf edit
 - [01-04-D1] Integration tests bypass global state via newTestRoot() with temp-dir YAMLStore
 - [01-04-D2] Compact wf list format: name, description, [tags] — one line, greppable
+- [02-01-D1] Deferred Charm stack + clipboard deps to plans that import them (Go removes unused deps on tidy)
 
 ### Pending Todos
 
@@ -67,6 +69,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-21T09:31:55Z
-Stopped at: Completed 01-04-PLAN.md — Phase 1 complete (4/4 plans)
+Last session: 2026-02-22T09:19:55Z
+Stopped at: Completed 02-01-PLAN.md — Phase 2 plan 1/4 complete
 Resume file: None

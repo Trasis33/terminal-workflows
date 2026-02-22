@@ -50,7 +50,7 @@ Plans:
   5. User can install shell integration via `wf init zsh/bash/fish` and the binary works standalone on macOS, Linux, and Windows without shell integration
 **Plans:** 4 plans
 Plans:
-  - [ ] 02-01-PLAN.md — Install Phase 2 deps + search/filter TDD (fuzzy, tag prefix, WorkflowSource)
+  - [x] 02-01-PLAN.md — Install Phase 2 deps + search/filter TDD (fuzzy, tag prefix, WorkflowSource)
   - [ ] 02-02-PLAN.md — Picker TUI model (StateSearch + StateParamFill + styles)
   - [ ] 02-03-PLAN.md — Shell integration scripts (zsh/bash/fish) + wf init command
   - [ ] 02-04-PLAN.md — wf pick command + clipboard + cross-compile + end-to-end verification
@@ -105,7 +105,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
-| 2. Quick Picker & Shell Integration | 0/4 | Planned | - |
+| 2. Quick Picker & Shell Integration | 1/4 | In progress | - |
 | 3. Management TUI | 0/0 | Not started | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
 | 5. AI Integration | 0/0 | Not started | - |
