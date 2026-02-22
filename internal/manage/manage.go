@@ -2,6 +2,7 @@ package manage
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/fredriklanga/wf/internal/config"
 	"github.com/fredriklanga/wf/internal/store"
 )
 
@@ -30,12 +31,14 @@ func Run(s store.Store) error {
 		return err
 	}
 
-	theme, err := LoadTheme("")
+	cfgDir := config.ConfigDir()
+
+	theme, err := LoadTheme(cfgDir)
 	if err != nil {
 		theme = DefaultTheme()
 	}
 
-	m := New(s, workflows, theme, "")
+	m := New(s, workflows, theme, cfgDir)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err = p.Run()
 	return err

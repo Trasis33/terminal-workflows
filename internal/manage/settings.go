@@ -43,7 +43,8 @@ type SettingsModel struct {
 	configDir string
 	width     int
 	height    int
-	dirty     bool // whether changes have been made
+	dirty     bool  // whether changes have been made
+	err       error // last save error (displayed to user)
 }
 
 // NewSettingsModel creates a settings view with a copy of the current theme.
@@ -223,6 +224,7 @@ func (m SettingsModel) updateNavigating(msg tea.KeyMsg) (SettingsModel, tea.Cmd)
 	case "enter":
 		switch field.key {
 		case "save":
+			m.err = nil // clear previous error
 			return m, m.saveTheme()
 		case "cancel":
 			return m, func() tea.Msg { return switchToBrowseMsg{} }
@@ -238,6 +240,7 @@ func (m SettingsModel) updateNavigating(msg tea.KeyMsg) (SettingsModel, tea.Cmd)
 		}
 
 	case "s":
+		m.err = nil // clear previous error
 		return m, m.saveTheme()
 
 	case "esc":
@@ -286,9 +289,13 @@ func (m *SettingsModel) applyPreset() {
 }
 
 // saveTheme persists the theme to disk and returns to browse.
+// Captures only configDir and theme to avoid retaining the entire model
+// in the closure (which runs asynchronously in a bubbletea goroutine).
 func (m SettingsModel) saveTheme() tea.Cmd {
+	configDir := m.configDir
+	theme := m.theme
 	return func() tea.Msg {
-		if err := SaveTheme(m.configDir, m.theme); err != nil {
+		if err := SaveTheme(configDir, theme); err != nil {
 			return saveErrorMsg{err: fmt.Errorf("save theme: %w", err)}
 		}
 		return themeSavedMsg{}
@@ -331,6 +338,14 @@ func (m SettingsModel) View() string {
 	// Dirty indicator.
 	if m.dirty {
 		sections = append(sections, "", s.Tag.Render("  ● unsaved changes"))
+	}
+
+	// Error display.
+	if m.err != nil {
+		errStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
+		sections = append(sections, "", errStyle.Render("  Error: "+m.err.Error()))
 	}
 
 	// Hints.

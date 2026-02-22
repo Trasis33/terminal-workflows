@@ -124,7 +124,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.loadWorkflows()
 
 	case saveErrorMsg:
-		m.form.err = msg.err
+		// Route the error to whichever view triggered the save.
+		switch m.state {
+		case viewSettings:
+			m.settings.err = msg.err
+		default:
+			m.form.err = msg.err
+		}
 		return m, nil
 
 	case switchToCreateMsg:

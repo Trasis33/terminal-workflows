@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -300,4 +301,175 @@ func TestSettingsCancelRevertsTheme(t *testing.T) {
 	// Theme should be reverted.
 	assert.Equal(t, original, sm.theme.Colors.Primary)
 	assert.NotNil(t, cmd) // should return switchToBrowseMsg
+}
+
+func TestSettingsSaveThemeHappyPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	sm := NewSettingsModel(DefaultTheme(), tmpDir)
+	sm.width = 80
+	sm.height = 30
+
+	// Change to "dark" preset.
+	sm, _ = sm.Update(tea.KeyMsg{Type: tea.KeyRight})
+	assert.Equal(t, "dark", sm.theme.Name)
+	assert.True(t, sm.dirty)
+
+	// Press 's' to save.
+	sm, cmd := sm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	assert.NotNil(t, cmd)
+
+	// Execute the command — should succeed.
+	msg := cmd()
+	_, isThemeSaved := msg.(themeSavedMsg)
+	assert.True(t, isThemeSaved, "expected themeSavedMsg, got %T", msg)
+
+	// Verify the file was written with correct data.
+	loaded, err := LoadTheme(tmpDir)
+	assert.NoError(t, err)
+	assert.Equal(t, "dark", loaded.Name)
+	assert.Equal(t, "75", loaded.Colors.Primary)
+}
+
+func TestSettingsSaveViaEnterOnSaveButton(t *testing.T) {
+	tmpDir := t.TempDir()
+	sm := NewSettingsModel(DefaultTheme(), tmpDir)
+	sm.width = 80
+	sm.height = 30
+
+	// Change preset.
+	sm, _ = sm.Update(tea.KeyMsg{Type: tea.KeyRight})
+
+	// Navigate down to Save button (field index 10).
+	for i := 0; i < 10; i++ {
+		sm, _ = sm.Update(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	assert.Equal(t, "save", sm.fields[sm.cursor].key)
+
+	// Press enter on Save.
+	_, cmd := sm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.NotNil(t, cmd)
+
+	msg := cmd()
+	_, isThemeSaved := msg.(themeSavedMsg)
+	assert.True(t, isThemeSaved, "expected themeSavedMsg, got %T", msg)
+}
+
+func TestSaveErrorRoutedToSettingsView(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/cfg")
+	m.width = 80
+	m.height = 24
+	m.browse.SetDimensions(80, 24)
+
+	// Switch to settings.
+	updated, _ := m.Update(switchToSettingsMsg{})
+	m = updated.(Model)
+	assert.Equal(t, viewSettings, m.state)
+
+	// Simulate a save error arriving while in settings view.
+	testErr := fmt.Errorf("permission denied")
+	updated, _ = m.Update(saveErrorMsg{err: testErr})
+	m = updated.(Model)
+
+	// Error should be routed to settings, not form.
+	assert.Equal(t, testErr, m.settings.err, "error should be on settings model")
+	assert.Nil(t, m.form.err, "error should NOT be on form model")
+
+	// Settings view should still be active (not switched away).
+	assert.Equal(t, viewSettings, m.state)
+}
+
+func TestSaveErrorDisplayedInSettingsView(t *testing.T) {
+	sm := NewSettingsModel(DefaultTheme(), "/tmp/cfg")
+	sm.width = 80
+	sm.height = 30
+	sm.err = fmt.Errorf("permission denied")
+
+	v := sm.View()
+	assert.Contains(t, v, "Error:")
+	assert.Contains(t, v, "permission denied")
+}
+
+func TestSaveErrorClearedOnRetrySKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	sm := NewSettingsModel(DefaultTheme(), tmpDir)
+	sm.width = 80
+	sm.height = 30
+	sm.err = fmt.Errorf("previous error")
+
+	// Press 's' — should clear the error and attempt save.
+	sm, cmd := sm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	assert.Nil(t, sm.err, "error should be cleared on save retry")
+	assert.NotNil(t, cmd)
+}
+
+func TestSaveErrorClearedOnRetryEnter(t *testing.T) {
+	tmpDir := t.TempDir()
+	sm := NewSettingsModel(DefaultTheme(), tmpDir)
+	sm.width = 80
+	sm.height = 30
+	sm.err = fmt.Errorf("previous error")
+
+	// Navigate to Save button.
+	for i := 0; i < 10; i++ {
+		sm, _ = sm.Update(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	assert.Equal(t, "save", sm.fields[sm.cursor].key)
+
+	// Press enter — should clear the error and attempt save.
+	sm, cmd := sm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.Nil(t, sm.err, "error should be cleared on save retry")
+	assert.NotNil(t, cmd)
+}
+
+func TestSaveErrorRoutedToFormView(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/cfg")
+
+	// Switch to create form.
+	updated, _ := m.Update(switchToCreateMsg{})
+	m = updated.(Model)
+	assert.Equal(t, viewCreate, m.state)
+
+	// Simulate a save error while in form view.
+	testErr := fmt.Errorf("store error")
+	updated, _ = m.Update(saveErrorMsg{err: testErr})
+	m = updated.(Model)
+
+	// Error should be on form, not settings.
+	assert.Equal(t, testErr, m.form.err)
+	assert.Nil(t, m.settings.err)
+}
+
+func TestSettingsFullFlowThroughRootModel(t *testing.T) {
+	tmpDir := t.TempDir()
+	s := &mockStore{}
+
+	m := New(s, nil, DefaultTheme(), tmpDir)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = updated.(Model)
+
+	// Switch to settings.
+	updated, _ = m.Update(switchToSettingsMsg{})
+	m = updated.(Model)
+
+	// Change preset.
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = updated.(Model)
+	assert.Equal(t, "dark", m.settings.theme.Name)
+
+	// Save.
+	var cmd tea.Cmd
+	updated, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(Model)
+	assert.NotNil(t, cmd)
+
+	// Execute save command.
+	msg := cmd()
+
+	// Process result.
+	updated, _ = m.Update(msg)
+	m = updated.(Model)
+	assert.Equal(t, viewBrowse, m.state)
+	assert.Equal(t, "dark", m.theme.Name)
 }
