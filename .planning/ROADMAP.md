@@ -64,7 +64,13 @@ Plans:
   2. User can create, edit, and delete workflows entirely from within the TUI (no CLI fallback needed)
   3. User can browse workflows organized by folders and filter by tags within the TUI
   4. User can customize the TUI theme (colors, layout)
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+  - [ ] 03-01-PLAN.md — Theme system, keybindings, root model scaffold, public API
+  - [ ] 03-02-PLAN.md — Browse view with sidebar (folders/tags), workflow list, preview pane, fuzzy search
+  - [ ] 03-03-PLAN.md — Create/edit form view using huh form library
+  - [ ] 03-04-PLAN.md — Dialog overlays (delete, folder ops, move) and theme settings view
+  - [ ] 03-05-PLAN.md — Cobra command wiring (`wf manage`) and end-to-end verification
 
 ### Phase 4: Advanced Parameters & Import
 **Goal**: Users can use enum and dynamic parameters in workflows, register previous shell commands as workflows, and import existing collections from Pet and Warp formats
@@ -106,7 +112,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 |-------|----------------|--------|-----------|
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
-| 3. Management TUI | 0/0 | Not started | - |
+| 3. Management TUI | 0/5 | Planned | - |
 | 4. Advanced Parameters & Import | 0/0 | Not started | - |
 | 5. AI Integration | 0/0 | Not started | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
