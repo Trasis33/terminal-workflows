@@ -64,6 +64,7 @@ type Model struct {
 
 	// Child view models.
 	browse BrowseModel
+	form   FormModel
 
 	// Dialog overlay (nil = no dialog active).
 	dialog *dialogState
@@ -81,6 +82,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.browse.SetDimensions(msg.Width, msg.Height)
+		if m.state == viewCreate || m.state == viewEdit {
+			m.form.SetDimensions(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -110,15 +114,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = viewBrowse
 		return m, nil
 
+	case workflowSavedMsg:
+		m.prevState = m.state
+		m.state = viewBrowse
+		return m, m.loadWorkflows()
+
+	case saveErrorMsg:
+		m.form.err = msg.err
+		return m, nil
+
 	case switchToCreateMsg:
 		m.prevState = m.state
 		m.state = viewCreate
-		return m, nil
+		folders := extractFolders(m.workflows)
+		tags := extractTags(m.workflows)
+		m.form = NewFormModel("create", nil, m.store, tags, folders, m.theme)
+		m.form.SetDimensions(m.width, m.height)
+		return m, m.form.Init()
 
 	case switchToEditMsg:
 		m.prevState = m.state
 		m.state = viewEdit
-		return m, nil
+		wf := msg.workflow
+		folders := extractFolders(m.workflows)
+		tags := extractTags(m.workflows)
+		m.form = NewFormModel("edit", &wf, m.store, tags, folders, m.theme)
+		m.form.SetDimensions(m.width, m.height)
+		return m, m.form.Init()
 
 	case switchToSettingsMsg:
 		m.prevState = m.state
@@ -130,6 +152,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.state {
 	case viewBrowse:
 		return m.updateBrowse(msg)
+	case viewCreate, viewEdit:
+		return m.updateForm(msg)
 	}
 
 	return m, nil
@@ -139,6 +163,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) updateBrowse(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.browse, cmd = m.browse.Update(msg)
+	return m, cmd
+}
+
+// updateForm routes messages to the FormModel.
+func (m Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.form, cmd = m.form.Update(msg)
 	return m, cmd
 }
 
@@ -173,8 +204,9 @@ func (m Model) View() string {
 			return m.renderOverlay(base, m.viewDialog())
 		}
 		return base
+	case viewCreate, viewEdit:
+		return m.form.View()
 	default:
-		// Placeholder for views not yet implemented.
 		return m.viewBrowse()
 	}
 }
