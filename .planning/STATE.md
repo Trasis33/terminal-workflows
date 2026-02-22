@@ -57,6 +57,10 @@ Recent decisions affecting current work:
 - [01-04-D1] Integration tests bypass global state via newTestRoot() with temp-dir YAMLStore
 - [01-04-D2] Compact wf list format: name, description, [tags] — one line, greppable
 - [02-01-D1] Deferred Charm stack + clipboard deps to plans that import them (Go removes unused deps on tidy)
+- [02-02-D1] Mint/cyan-green color palette (Color 49, 158, 73) — avoids purple-gradient cliche
+- [02-02-D2] Single commit for both tasks — Go compilation requires all package files simultaneously
+- [02-02-D3] Esc quits picker entirely (not back-to-search) — consistent across both states
+- [02-02-D4] Enter on non-last param advances to next — reduces friction
 - [02-03-D1] Ctrl+G as default keybinding — overrides readline's rarely-used "abort" in bash, safe in zsh/fish
 - [02-03-D2] Replace existing prompt text (atuin approach) — wf outputs complete commands, not fragments
 
@@ -71,6 +75,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22T09:25:08Z
-Stopped at: Completed 02-03-PLAN.md — Phase 2 plan 3/4 complete
+Last session: 2026-02-22T09:27:30Z
+Stopped at: Committed 02-02-PLAN.md (Picker TUI Model) — Phase 2 plan 3/4 complete
 Resume file: None
