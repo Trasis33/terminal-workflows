@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 3 of 6 (Management TUI)
-Plan: 1 of 5 in current phase
+Plan: 2 of 5 in current phase
 Status: In progress
-Last activity: 2026-02-22 — Completed 03-01-PLAN.md (theme system + root model)
+Last activity: 2026-02-22 — Completed 03-02-PLAN.md (browse view + sidebar)
 
-Progress: [█████████░░░░] 69% (9/13 defined plans)
+Progress: [██████████░░░] 77% (10/13 defined plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: ~4 minutes
-- Total execution time: ~0.6 hours
+- Total execution time: ~0.7 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [█████████░░░░] 69% (9/13 defined plans)
 |-------|-------|-------|----------|
 | 1. Foundation | 4/4 ✅ | ~20 min | ~5 min |
 | 2. Quick Picker | 4/4 ✅ | ~25 min | ~6 min |
-| 3. Management TUI | 1/5 🔧 | ~3 min | ~3 min |
+| 3. Management TUI | 2/5 🔧 | ~11 min | ~5.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 ✅, 02-02 ✅, 02-03 ✅, 02-04 ✅, 03-01 ✅
-- Trend: Consistent ~3-6 min/plan
+- Last 5 plans: 02-02 ✅, 02-03 ✅, 02-04 ✅, 03-01 ✅, 03-02 ✅
+- Trend: Consistent ~3-8 min/plan
 
 *Updated after each plan completion*
 
@@ -70,6 +70,10 @@ Recent decisions affecting current work:
 - [03-01-D1] themeStyles struct kept in styles.go for separation; Theme and computeStyles() in theme.go
 - [03-01-D2] Independent preset themes (not derived from huh) — management TUI theme struct has different fields
 - [03-01-D3] Dialog overlay uses lipgloss.Place with whitespace chars for visual depth
+- [03-02-D1] Dual-mode sidebar (folders/tags) via ToggleMode() with virtual root items
+- [03-02-D2] Reuse picker.ParseQuery + picker.Search for fuzzy filtering in browse view
+- [03-02-D3] browsetruncate local helper to avoid collision with unexported truncateStr in picker
+- [03-02-D4] Folders derived implicitly from workflow name path prefixes (no explicit folder model)
 
 ### Pending Todos
 
@@ -79,9 +83,10 @@ None yet.
 
 - Research flags TIOCSTI deprecation as Phase 2 blocker — must use shell function wrappers, not ioctl ✅ (resolved: shell function wrappers implemented)
 - Copilot CLI SDK is technical preview (Jan 2026) — re-assess stability before Phase 5 planning
+- Stale form.go/form_test.go files from debug session keep reappearing in working tree — may need .gitignore or cleanup before Plan 03-03
 
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 03-01-PLAN.md — Phase 3 plan 1 of 5 complete (theme system + root model)
+Stopped at: Completed 03-02-PLAN.md — Phase 3 plan 2 of 5 complete (browse view + sidebar)
 Resume file: None
