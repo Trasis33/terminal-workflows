@@ -1,6 +1,9 @@
 package manage
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -40,13 +43,6 @@ type workflowsLoadedMsg struct {
 	err       error
 }
 
-// dialogState holds the state for an active confirmation dialog.
-type dialogState struct {
-	title     string
-	message   string
-	onConfirm tea.Cmd
-}
-
 // Model is the root Bubble Tea model for the management TUI.
 type Model struct {
 	state     viewState
@@ -63,11 +59,12 @@ type Model struct {
 	configDir string // for theme persistence
 
 	// Child view models.
-	browse BrowseModel
-	form   FormModel
+	browse   BrowseModel
+	form     FormModel
+	settings SettingsModel
 
 	// Dialog overlay (nil = no dialog active).
-	dialog *dialogState
+	dialog *DialogModel
 }
 
 // Init returns the initial command for the management TUI.
@@ -85,6 +82,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == viewCreate || m.state == viewEdit {
 			m.form.SetDimensions(msg.Width, msg.Height)
 		}
+		if m.state == viewSettings {
+			m.settings.width = msg.Width
+			m.settings.height = msg.Height
+		}
 		return m, nil
 
 	case tea.KeyMsg:
@@ -98,6 +99,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		}
+
+	case dialogResultMsg:
+		return m.handleDialogResult(msg)
 
 	case refreshWorkflowsMsg:
 		return m, m.loadWorkflows()
@@ -142,9 +146,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form.SetDimensions(m.width, m.height)
 		return m, m.form.Init()
 
+	case showDeleteDialogMsg:
+		dlg := NewDeleteDialog(msg.workflow.Name, m.theme)
+		m.dialog = &dlg
+		return m, dlg.Init()
+
+	case showFolderDialogMsg:
+		return m.handleFolderDialogMsg(msg)
+
+	case moveWorkflowMsg:
+		folders := extractFolders(m.workflows)
+		dlg := NewMoveDialog(msg.workflow.Name, folders, m.theme)
+		m.dialog = &dlg
+		return m, nil
+
 	case switchToSettingsMsg:
 		m.prevState = m.state
 		m.state = viewSettings
+		m.settings = NewSettingsModel(m.theme, m.configDir)
+		m.settings.width = m.width
+		m.settings.height = m.height
+		return m, nil
+
+	case themeSavedMsg:
+		m.prevState = m.state
+		m.state = viewBrowse
+		// Reload saved theme.
+		saved, err := LoadTheme(m.configDir)
+		if err == nil {
+			m.theme = saved
+			// Rebuild browse model with new theme.
+			folders := extractFolders(m.workflows)
+			tags := extractTags(m.workflows)
+			m.browse = NewBrowseModel(m.workflows, folders, tags, m.theme, m.keys)
+			m.browse.SetDimensions(m.width, m.height)
+		}
 		return m, nil
 	}
 
@@ -154,6 +190,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateBrowse(msg)
 	case viewCreate, viewEdit:
 		return m.updateForm(msg)
+	case viewSettings:
+		return m.updateSettings(msg)
 	}
 
 	return m, nil
@@ -173,18 +211,132 @@ func (m Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// updateDialog handles key events when a dialog is active.
+// updateDialog routes key events to the active dialog model.
 func (m Model) updateDialog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "y", "enter":
-		cmd := m.dialog.onConfirm
-		m.dialog = nil
-		return m, cmd
-	case "n", "esc":
-		m.dialog = nil
+	var cmd tea.Cmd
+	dlg := *m.dialog
+	dlg, cmd = dlg.Update(msg)
+	m.dialog = &dlg
+	return m, cmd
+}
+
+// handleDialogResult processes results from dialog interactions.
+func (m Model) handleDialogResult(msg dialogResultMsg) (tea.Model, tea.Cmd) {
+	m.dialog = nil // dismiss dialog
+
+	if !msg.confirmed {
+		return m, nil
+	}
+
+	switch msg.dtype {
+	case dialogDeleteConfirm:
+		name := msg.data["name"]
+		return m, func() tea.Msg {
+			if err := m.store.Delete(name); err != nil {
+				return saveErrorMsg{err: err}
+			}
+			return refreshWorkflowsMsg{}
+		}
+
+	case dialogFolderCreate:
+		folderName := msg.data["name"]
+		return m, func() tea.Msg {
+			dir := filepath.Join(m.configDir, "workflows", folderName)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return saveErrorMsg{err: fmt.Errorf("create folder: %w", err)}
+			}
+			return refreshWorkflowsMsg{}
+		}
+
+	case dialogFolderRename:
+		oldPath := msg.data["oldPath"]
+		newName := msg.data["name"]
+		return m, func() tea.Msg {
+			oldDir := filepath.Join(m.configDir, "workflows", oldPath)
+			newDir := filepath.Join(m.configDir, "workflows", newName)
+			if err := os.Rename(oldDir, newDir); err != nil {
+				return saveErrorMsg{err: fmt.Errorf("rename folder: %w", err)}
+			}
+			return refreshWorkflowsMsg{}
+		}
+
+	case dialogFolderDelete:
+		folderPath := msg.data["folder"]
+		return m, func() tea.Msg {
+			dir := filepath.Join(m.configDir, "workflows", folderPath)
+			if err := os.Remove(dir); err != nil {
+				return saveErrorMsg{err: fmt.Errorf("delete folder: %w", err)}
+			}
+			return refreshWorkflowsMsg{}
+		}
+
+	case dialogMoveWorkflow:
+		oldName := msg.data["name"]
+		newFolder := msg.data["folder"]
+		return m, func() tea.Msg {
+			wf, err := m.store.Get(oldName)
+			if err != nil || wf == nil {
+				return saveErrorMsg{err: fmt.Errorf("workflow not found: %s", oldName)}
+			}
+
+			// Extract base name (last segment).
+			baseName := oldName
+			if idx := strings.LastIndex(oldName, "/"); idx >= 0 {
+				baseName = oldName[idx+1:]
+			}
+
+			// Build new name.
+			newName := baseName
+			if newFolder != "" {
+				newName = newFolder + "/" + baseName
+			}
+
+			if newName == oldName {
+				return refreshWorkflowsMsg{} // no change needed
+			}
+
+			// Save with new name, delete old.
+			moved := *wf
+			moved.Name = newName
+			if err := m.store.Save(&moved); err != nil {
+				return saveErrorMsg{err: fmt.Errorf("move workflow: %w", err)}
+			}
+			if err := m.store.Delete(oldName); err != nil {
+				return saveErrorMsg{err: fmt.Errorf("cleanup old workflow: %w", err)}
+			}
+
+			return refreshWorkflowsMsg{}
+		}
+	}
+
+	return m, nil
+}
+
+// handleFolderDialogMsg creates the appropriate folder dialog based on action.
+func (m Model) handleFolderDialogMsg(msg showFolderDialogMsg) (tea.Model, tea.Cmd) {
+	switch msg.action {
+	case "create":
+		dlg := NewFolderCreateDialog(m.theme)
+		m.dialog = &dlg
+		return m, dlg.Init()
+	case "rename":
+		// Rename requires a selected folder — use sidebar's current selection.
+		dlg := NewFolderRenameDialog(msg.action, m.theme)
+		m.dialog = &dlg
+		return m, dlg.Init()
+	case "delete":
+		dlg := NewFolderDeleteDialog(msg.action, m.theme)
+		m.dialog = &dlg
 		return m, nil
 	}
 	return m, nil
+}
+
+// updateSettings routes messages to the SettingsModel.
+func (m Model) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	m.settings, cmd = m.settings.Update(msg)
+	return m, cmd
 }
 
 // loadWorkflows returns a command that reloads workflows from the store.
@@ -197,34 +349,26 @@ func (m Model) loadWorkflows() tea.Cmd {
 
 // View renders the management TUI.
 func (m Model) View() string {
+	var base string
 	switch m.state {
-	case viewBrowse:
-		base := m.viewBrowse()
-		if m.dialog != nil {
-			return m.renderOverlay(base, m.viewDialog())
-		}
-		return base
 	case viewCreate, viewEdit:
-		return m.form.View()
+		base = m.form.View()
+	case viewSettings:
+		base = m.settings.View()
 	default:
-		return m.viewBrowse()
+		base = m.viewBrowse()
 	}
+
+	if m.dialog != nil {
+		return m.renderOverlay(base, m.dialog.View())
+	}
+
+	return base
 }
 
 // viewBrowse renders the browse view via the BrowseModel.
 func (m Model) viewBrowse() string {
 	return m.browse.View()
-}
-
-// viewDialog renders the active dialog overlay content.
-func (m Model) viewDialog() string {
-	if m.dialog == nil {
-		return ""
-	}
-	s := m.theme.Styles()
-	title := s.DialogTitle.Render(m.dialog.title)
-	body := m.dialog.message + "\n\n" + s.Dim.Render("[y]es  [n]o")
-	return s.DialogBox.Render(lipgloss.JoinVertical(lipgloss.Left, title, "", body))
 }
 
 // renderOverlay centers dialog content over the full terminal area.
