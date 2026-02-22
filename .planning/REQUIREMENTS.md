@@ -23,20 +23,20 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **PARM-03**: User can define enum parameters with predefined option lists
 - [ ] **PARM-04**: User can define dynamic parameters populated by shell command output
 - [x] **PARM-05**: Named parameters used multiple times in a command auto-fill from a single input
-- [ ] **PARM-06**: User fills parameters inline with the full command visible
+- [x] **PARM-06**: User fills parameters inline with the full command visible
 
 ### Search
 
-- [ ] **SRCH-01**: User can fuzzy search workflows by name, description, tags, and command content
-- [ ] **SRCH-02**: User can filter search results by tag before fuzzy matching
-- [ ] **SRCH-03**: Search results display workflow name, description, tags, and command preview
+- [x] **SRCH-01**: User can fuzzy search workflows by name, description, tags, and command content
+- [x] **SRCH-02**: User can filter search results by tag before fuzzy matching
+- [x] **SRCH-03**: Search results display workflow name, description, tags, and command preview
 
 ### Quick Picker
 
-- [ ] **PICK-01**: User can invoke a fuzzy picker overlay via shell keybinding
-- [ ] **PICK-02**: Picker starts in under 100ms
-- [ ] **PICK-03**: User can search, select a workflow, fill parameters, and paste to prompt in one flow
-- [ ] **PICK-04**: User can copy a workflow command to clipboard instead of pasting to prompt
+- [x] **PICK-01**: User can invoke a fuzzy picker overlay via shell keybinding
+- [x] **PICK-02**: Picker starts in under 100ms
+- [x] **PICK-03**: User can search, select a workflow, fill parameters, and paste to prompt in one flow
+- [x] **PICK-04**: User can copy a workflow command to clipboard instead of pasting to prompt
 
 ### Management TUI
 
@@ -47,11 +47,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Shell Integration
 
-- [ ] **SHEL-01**: User can install shell integration via `wf init zsh/bash/fish`
-- [ ] **SHEL-02**: Shell integration adds a keybinding to invoke the quick picker
-- [ ] **SHEL-03**: Selected workflow command is pasted into the user's active prompt
+- [x] **SHEL-01**: User can install shell integration via `wf init zsh/bash/fish`
+- [x] **SHEL-02**: Shell integration adds a keybinding to invoke the quick picker
+- [x] **SHEL-03**: Selected workflow command is pasted into the user's active prompt
 - [ ] **SHEL-04**: Shell integration works with PowerShell on Windows
-- [ ] **SHEL-05**: Binary works standalone on macOS, Linux, and Windows
+- [x] **SHEL-05**: Binary works standalone on macOS, Linux, and Windows
 
 ### Organization
 
@@ -122,23 +122,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PARM-03 | Phase 4 | Pending |
 | PARM-04 | Phase 4 | Pending |
 | PARM-05 | Phase 1 | Complete |
-| PARM-06 | Phase 2 | Pending |
-| SRCH-01 | Phase 2 | Pending |
-| SRCH-02 | Phase 2 | Pending |
-| SRCH-03 | Phase 2 | Pending |
-| PICK-01 | Phase 2 | Pending |
-| PICK-02 | Phase 2 | Pending |
-| PICK-03 | Phase 2 | Pending |
-| PICK-04 | Phase 2 | Pending |
+| PARM-06 | Phase 2 | Complete |
+| SRCH-01 | Phase 2 | Complete |
+| SRCH-02 | Phase 2 | Complete |
+| SRCH-03 | Phase 2 | Complete |
+| PICK-01 | Phase 2 | Complete |
+| PICK-02 | Phase 2 | Complete |
+| PICK-03 | Phase 2 | Complete |
+| PICK-04 | Phase 2 | Complete |
 | MTUI-01 | Phase 3 | Pending |
 | MTUI-02 | Phase 3 | Pending |
 | MTUI-03 | Phase 3 | Pending |
 | MTUI-04 | Phase 3 | Pending |
-| SHEL-01 | Phase 2 | Pending |
-| SHEL-02 | Phase 2 | Pending |
-| SHEL-03 | Phase 2 | Pending |
+| SHEL-01 | Phase 2 | Complete |
+| SHEL-02 | Phase 2 | Complete |
+| SHEL-03 | Phase 2 | Complete |
 | SHEL-04 | Phase 6 | Pending |
-| SHEL-05 | Phase 2 | Pending |
+| SHEL-05 | Phase 2 | Complete |
 | ORGN-01 | Phase 1 | Complete |
 | ORGN-02 | Phase 1 | Complete |
 | ORGN-03 | Phase 6 | Pending |
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-19 after roadmap creation*
+*Last updated: 2026-02-22 after Phase 2 completion*

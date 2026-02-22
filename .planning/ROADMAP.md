@@ -13,7 +13,7 @@ wf goes from zero to a fully usable terminal workflow manager in 6 phases. The f
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Data Layer** - YAML storage, template engine, and project scaffold
-- [ ] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
+- [x] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
 - [ ] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
 - [ ] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
 - [ ] **Phase 5: AI Integration** - Copilot SDK workflow generation and metadata auto-fill
