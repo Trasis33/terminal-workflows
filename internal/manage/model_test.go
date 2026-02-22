@@ -46,10 +46,12 @@ func TestModelViewRenders(t *testing.T) {
 	m := New(s, nil, DefaultTheme(), "")
 	m.width = 80
 	m.height = 24
+	m.browse.SetDimensions(80, 24)
 
 	v := m.View()
-	assert.Contains(t, v, "wf manage")
-	assert.Contains(t, v, "0 workflows")
+	// Browse view shows "No workflows found" when empty and keybinding hints.
+	assert.Contains(t, v, "No workflows found")
+	assert.Contains(t, v, "q quit")
 }
 
 func TestModelWindowSizeMsg(t *testing.T) {
@@ -126,4 +128,65 @@ func TestRefreshWorkflowsMsg(t *testing.T) {
 
 	_, cmd := m.Update(refreshWorkflowsMsg{})
 	assert.NotNil(t, cmd, "refreshWorkflowsMsg should return a command")
+}
+
+func TestBrowseModelWiring(t *testing.T) {
+	wfs := []store.Workflow{
+		{Name: "infra/deploy", Command: "kubectl apply", Tags: []string{"k8s"}},
+		{Name: "dev/test", Command: "go test", Tags: []string{"go", "test"}},
+	}
+	s := &mockStore{workflows: wfs}
+	m := New(s, wfs, DefaultTheme(), "/tmp/cfg")
+	m.width = 100
+	m.height = 30
+	m.browse.SetDimensions(100, 30)
+
+	v := m.View()
+	// Should show workflow names from browse model.
+	assert.Contains(t, v, "infra/deploy")
+	assert.Contains(t, v, "dev/test")
+}
+
+func TestWorkflowsLoadedUpdatessBrowse(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "")
+	m.width = 100
+	m.height = 30
+	m.browse.SetDimensions(100, 30)
+
+	// Initially empty.
+	v := m.View()
+	assert.Contains(t, v, "No workflows found")
+
+	// Load workflows — should propagate to browse model.
+	wfs := []store.Workflow{
+		{Name: "hello", Command: "echo hi", Tags: []string{"greeting"}},
+	}
+	updated, _ := m.Update(workflowsLoadedMsg{workflows: wfs})
+	model := updated.(Model)
+	model.browse.SetDimensions(100, 30)
+
+	v = model.View()
+	assert.Contains(t, v, "hello")
+}
+
+func TestExtractFolders(t *testing.T) {
+	wfs := []store.Workflow{
+		{Name: "infra/deploy/app"},
+		{Name: "infra/monitor"},
+		{Name: "simple"},
+	}
+	folders := extractFolders(wfs)
+	assert.Contains(t, folders, "infra")
+	assert.Contains(t, folders, "infra/deploy")
+	assert.Len(t, folders, 2) // "infra" and "infra/deploy"
+}
+
+func TestExtractTags(t *testing.T) {
+	wfs := []store.Workflow{
+		{Name: "a", Tags: []string{"go", "test"}},
+		{Name: "b", Tags: []string{"go", "deploy"}},
+	}
+	tags := extractTags(wfs)
+	assert.Equal(t, []string{"deploy", "go", "test"}, tags)
 }

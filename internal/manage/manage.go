@@ -7,13 +7,18 @@ import (
 
 // New creates a new management TUI model.
 func New(s store.Store, workflows []store.Workflow, theme Theme, configDir string) Model {
+	keys := defaultKeyMap()
+	folders := extractFolders(workflows)
+	tags := extractTags(workflows)
+
 	return Model{
 		state:     viewBrowse,
 		store:     s,
 		workflows: workflows,
 		theme:     theme,
-		keys:      defaultKeyMap(),
+		keys:      keys,
 		configDir: configDir,
+		browse:    NewBrowseModel(workflows, folders, tags, theme, keys),
 	}
 }
 

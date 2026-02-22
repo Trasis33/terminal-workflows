@@ -1,7 +1,8 @@
 package manage
 
 import (
-	"fmt"
+	"sort"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -61,8 +62,8 @@ type Model struct {
 
 	configDir string // for theme persistence
 
-	// Placeholder — Plans 02-04 populate real child models.
-	browseReady bool
+	// Child view models.
+	browse BrowseModel
 
 	// Dialog overlay (nil = no dialog active).
 	dialog *dialogState
@@ -79,6 +80,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.browse.SetDimensions(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -99,6 +101,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case workflowsLoadedMsg:
 		if msg.err == nil {
 			m.workflows = msg.workflows
+			m.browse.UpdateData(msg.workflows, extractFolders(msg.workflows), extractTags(msg.workflows))
 		}
 		return m, nil
 
@@ -132,17 +135,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateBrowse handles messages in the browse state.
-// Placeholder implementation — Plan 02 will add the full browse view.
+// updateBrowse routes messages to the BrowseModel.
 func (m Model) updateBrowse(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q":
-			return m, tea.Quit
-		}
-	}
-	return m, nil
+	var cmd tea.Cmd
+	m.browse, cmd = m.browse.Update(msg)
+	return m, cmd
 }
 
 // updateDialog handles key events when a dialog is active.
@@ -182,26 +179,9 @@ func (m Model) View() string {
 	}
 }
 
-// viewBrowse renders the placeholder browse view.
+// viewBrowse renders the browse view via the BrowseModel.
 func (m Model) viewBrowse() string {
-	s := m.theme.Styles()
-
-	title := s.Highlight.Render("wf manage")
-	count := s.Dim.Render(fmt.Sprintf("%d workflows", len(m.workflows)))
-	hint := s.Hint.Render("q quit  n new  e edit  d delete  ? help")
-
-	content := lipgloss.JoinVertical(lipgloss.Center,
-		"",
-		title,
-		count,
-		"",
-		hint,
-	)
-
-	return lipgloss.Place(m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
-		content,
-	)
+	return m.browse.View()
 }
 
 // viewDialog renders the active dialog overlay content.
@@ -223,4 +203,40 @@ func (m Model) renderOverlay(_ string, dialog string) string {
 		lipgloss.WithWhitespaceChars("░"),
 		lipgloss.WithWhitespaceForeground(lipgloss.Color("236")),
 	)
+}
+
+// extractFolders derives unique folder paths from workflow names.
+// A workflow named "infra/deploy/app" produces folders ["infra", "infra/deploy"].
+func extractFolders(workflows []store.Workflow) []string {
+	seen := make(map[string]struct{})
+	for _, wf := range workflows {
+		parts := strings.Split(wf.Name, "/")
+		// Each prefix up to (but not including) the last segment is a folder.
+		for i := 1; i < len(parts); i++ {
+			folder := strings.Join(parts[:i], "/")
+			seen[folder] = struct{}{}
+		}
+	}
+	folders := make([]string, 0, len(seen))
+	for f := range seen {
+		folders = append(folders, f)
+	}
+	sort.Strings(folders)
+	return folders
+}
+
+// extractTags derives unique, sorted tags from all workflows.
+func extractTags(workflows []store.Workflow) []string {
+	seen := make(map[string]struct{})
+	for _, wf := range workflows {
+		for _, t := range wf.Tags {
+			seen[t] = struct{}{}
+		}
+	}
+	tags := make([]string, 0, len(seen))
+	for t := range seen {
+		tags = append(tags, t)
+	}
+	sort.Strings(tags)
+	return tags
 }
