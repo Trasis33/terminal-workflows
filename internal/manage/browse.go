@@ -221,7 +221,7 @@ func (b BrowseModel) updateListFocus(msg tea.KeyMsg) (BrowseModel, tea.Cmd) {
 		}
 		return b, nil
 
-	case "ctrl+t":
+	case "S":
 		return b, func() tea.Msg { return switchToSettingsMsg{} }
 
 	case "q":
@@ -476,7 +476,7 @@ func (b BrowseModel) renderHints(s themeStyles) string {
 	} else if b.focus == focusSidebar {
 		hints = "↑↓ navigate  enter filter  →/esc list  tab folders/tags  q quit"
 	} else {
-		hints = "n new  e edit  d delete  m move  / search  tab folders/tags  ←/h sidebar  ctrl+t theme  q quit"
+		hints = "n new  e edit  d delete  m move  / search  tab folders/tags  ←/h sidebar  S settings  q quit"
 	}
 	return s.Hint.Render("  " + hints)
 }

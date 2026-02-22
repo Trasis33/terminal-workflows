@@ -13,11 +13,11 @@ func TestNewFormModelCreateMode(t *testing.T) {
 	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
 
 	assert.Equal(t, "create", m.mode)
-	assert.Empty(t, m.name)
-	assert.Empty(t, m.description)
-	assert.Empty(t, m.command)
-	assert.Empty(t, m.tagInput)
-	assert.Empty(t, m.folder)
+	assert.Empty(t, m.vals.name)
+	assert.Empty(t, m.vals.description)
+	assert.Empty(t, m.vals.command)
+	assert.Empty(t, m.vals.tagInput)
+	assert.Empty(t, m.vals.folder)
 	assert.Empty(t, m.originalName)
 	assert.NotNil(t, m.form)
 }
@@ -35,11 +35,11 @@ func TestNewFormModelEditMode(t *testing.T) {
 
 	assert.Equal(t, "edit", m.mode)
 	assert.Equal(t, "infra/deploy-app", m.originalName)
-	assert.Equal(t, "deploy-app", m.name)
-	assert.Equal(t, "infra", m.folder)
-	assert.Equal(t, "kubectl apply -f deploy.yaml", m.command)
-	assert.Equal(t, "Deploy the app to k8s", m.description)
-	assert.Equal(t, "k8s, deploy", m.tagInput)
+	assert.Equal(t, "deploy-app", m.vals.name)
+	assert.Equal(t, "infra", m.vals.folder)
+	assert.Equal(t, "kubectl apply -f deploy.yaml", m.vals.command)
+	assert.Equal(t, "Deploy the app to k8s", m.vals.description)
+	assert.Equal(t, "k8s, deploy", m.vals.tagInput)
 	assert.NotNil(t, m.form)
 }
 
@@ -52,8 +52,8 @@ func TestNewFormModelEditNoFolder(t *testing.T) {
 
 	m := NewFormModel("edit", wf, s, nil, nil, DefaultTheme())
 
-	assert.Equal(t, "simple-wf", m.name)
-	assert.Empty(t, m.folder)
+	assert.Equal(t, "simple-wf", m.vals.name)
+	assert.Empty(t, m.vals.folder)
 }
 
 func TestFormModelViewCreate(t *testing.T) {
@@ -112,11 +112,11 @@ func TestFormModelSaveWorkflow(t *testing.T) {
 	s := &savingMockStore{saved: &saved}
 
 	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
-	m.name = "my-wf"
-	m.command = "echo hello"
-	m.description = "A test workflow"
-	m.tagInput = "test, demo"
-	m.folder = "examples"
+	m.vals.name = "my-wf"
+	m.vals.command = "echo hello"
+	m.vals.description = "A test workflow"
+	m.vals.tagInput = "test, demo"
+	m.vals.folder = "examples"
 
 	cmd := m.saveWorkflow()
 	require.NotNil(t, cmd)
@@ -136,8 +136,8 @@ func TestFormModelSaveWorkflowNoFolder(t *testing.T) {
 	s := &savingMockStore{saved: &saved}
 
 	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
-	m.name = "simple"
-	m.command = "ls -la"
+	m.vals.name = "simple"
+	m.vals.command = "ls -la"
 
 	cmd := m.saveWorkflow()
 	msg := cmd()
@@ -156,8 +156,8 @@ func TestFormModelSaveWorkflowEditRename(t *testing.T) {
 	}, s, nil, nil, DefaultTheme())
 
 	// Change the name.
-	m.name = "new-name"
-	m.command = "echo new"
+	m.vals.name = "new-name"
+	m.vals.command = "echo new"
 
 	cmd := m.saveWorkflow()
 	msg := cmd()

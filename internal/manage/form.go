@@ -17,6 +17,18 @@ var (
 	errCommandRequired = errors.New("command is required")
 )
 
+// formValues holds form field values as a shared reference.
+// Because bubbletea copies models on each Update cycle, huh's pointer-based
+// Value() bindings would point to stale copies of FormModel fields.
+// By storing values in a heap-allocated struct, all copies share the same data.
+type formValues struct {
+	name        string
+	description string
+	command     string
+	tagInput    string // comma-separated tags
+	folder      string
+}
+
 // FormModel manages a full-screen huh form for creating or editing a workflow.
 type FormModel struct {
 	form *huh.Form
@@ -31,12 +43,10 @@ type FormModel struct {
 	width  int
 	height int
 
-	// Form field values — bound to huh inputs via pointers.
-	name        string
-	description string
-	command     string
-	tagInput    string // comma-separated tags
-	folder      string
+	// Shared form field values — bound to huh inputs via pointers.
+	// Using a pointer to a struct ensures all bubbletea copies share
+	// the same underlying data that huh writes to.
+	vals *formValues
 
 	// Suggestions for autocomplete.
 	existingTags    []string
@@ -58,6 +68,7 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 		mode:            mode,
 		store:           s,
 		theme:           theme,
+		vals:            &formValues{},
 		existingTags:    existingTags,
 		existingFolders: existingFolders,
 	}
@@ -67,15 +78,15 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 
 		// Extract folder from name (everything before last /).
 		if idx := strings.LastIndex(wf.Name, "/"); idx >= 0 {
-			m.folder = wf.Name[:idx]
-			m.name = wf.Name[idx+1:]
+			m.vals.folder = wf.Name[:idx]
+			m.vals.name = wf.Name[idx+1:]
 		} else {
-			m.name = wf.Name
+			m.vals.name = wf.Name
 		}
 
-		m.description = wf.Description
-		m.command = wf.Command
-		m.tagInput = strings.Join(wf.Tags, ", ")
+		m.vals.description = wf.Description
+		m.vals.command = wf.Command
+		m.vals.tagInput = strings.Join(wf.Tags, ", ")
 	}
 
 	m.form = m.buildForm()
@@ -84,9 +95,11 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 
 // buildForm constructs the huh.Form with all workflow fields.
 func (m *FormModel) buildForm() *huh.Form {
+	v := m.vals
+
 	nameInput := huh.NewInput().
 		Title("Name").
-		Value(&m.name).
+		Value(&v.name).
 		Placeholder("my-workflow").
 		Validate(func(s string) error {
 			if strings.TrimSpace(s) == "" {
@@ -100,12 +113,12 @@ func (m *FormModel) buildForm() *huh.Form {
 
 	descInput := huh.NewInput().
 		Title("Description").
-		Value(&m.description).
+		Value(&v.description).
 		Placeholder("What does this workflow do?")
 
 	cmdInput := huh.NewText().
 		Title("Command").
-		Value(&m.command).
+		Value(&v.command).
 		Lines(8).
 		Placeholder("Enter command (alt+enter for newline)").
 		Validate(func(s string) error {
@@ -117,22 +130,22 @@ func (m *FormModel) buildForm() *huh.Form {
 
 	tagInputField := huh.NewInput().
 		Title("Tags (comma-separated)").
-		Value(&m.tagInput).
+		Value(&v.tagInput).
 		Placeholder("e.g., docker, deploy, infra")
 	if len(m.existingTags) > 0 {
 		tagInputField = tagInputField.SuggestionsFunc(func() []string {
 			return m.existingTags
-		}, &m.tagInput)
+		}, &v.tagInput)
 	}
 
 	folderInput := huh.NewInput().
 		Title("Folder").
-		Value(&m.folder).
+		Value(&v.folder).
 		Placeholder("e.g., infra/deploy (empty for root)")
 	if len(m.existingFolders) > 0 {
 		folderInput = folderInput.SuggestionsFunc(func() []string {
 			return m.existingFolders
-		}, &m.folder)
+		}, &v.folder)
 	}
 
 	f := huh.NewForm(
@@ -181,13 +194,20 @@ func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 
 // saveWorkflow builds a Workflow from form fields and persists it via Store.
 func (m FormModel) saveWorkflow() tea.Cmd {
+	// Capture the shared values pointer — huh has been writing
+	// directly to these fields throughout the form lifecycle.
+	v := m.vals
+	st := m.store
+	mode := m.mode
+	originalName := m.originalName
+
 	return func() tea.Msg {
 		// Parse tags from comma-separated input.
-		tags := parseTags(m.tagInput)
+		tags := parseTags(v.tagInput)
 
 		// Build full name with folder prefix.
-		fullName := strings.TrimSpace(m.name)
-		folder := strings.TrimSpace(m.folder)
+		fullName := strings.TrimSpace(v.name)
+		folder := strings.TrimSpace(v.folder)
 		folder = strings.Trim(folder, "/")
 		if folder != "" {
 			fullName = folder + "/" + fullName
@@ -195,19 +215,19 @@ func (m FormModel) saveWorkflow() tea.Cmd {
 
 		wf := store.Workflow{
 			Name:        fullName,
-			Command:     strings.TrimSpace(m.command),
-			Description: strings.TrimSpace(m.description),
+			Command:     strings.TrimSpace(v.command),
+			Description: strings.TrimSpace(v.description),
 			Tags:        tags,
 		}
 
 		// If editing and name changed, delete the old workflow first.
-		if m.mode == "edit" && m.originalName != "" && m.originalName != fullName {
-			if err := m.store.Delete(m.originalName); err != nil {
+		if mode == "edit" && originalName != "" && originalName != fullName {
+			if err := st.Delete(originalName); err != nil {
 				return saveErrorMsg{err: err}
 			}
 		}
 
-		if err := m.store.Save(&wf); err != nil {
+		if err := st.Save(&wf); err != nil {
 			return saveErrorMsg{err: err}
 		}
 

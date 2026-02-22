@@ -37,7 +37,7 @@ func defaultKeyMap() keyMap {
 
 		Search:        key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 		ToggleSidebar: key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "toggle sidebar")),
-		Settings:      key.NewBinding(key.WithKeys("ctrl+t"), key.WithHelp("ctrl+t", "theme")),
+		Settings:      key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "settings")),
 
 		Quit: key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
 		Help: key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
