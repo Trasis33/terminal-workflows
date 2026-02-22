@@ -6,15 +6,14 @@ package shell
 // Pattern verified from fzf key-bindings.bash source.
 // Uses READLINE_LINE/READLINE_POINT for readline buffer manipulation.
 // Requires bash >= 4.0 for bind -x with READLINE_LINE.
-// Uses fd swap (3>&1 1>&2 2>&3) so the TUI renders on the terminal
-// while the selected command is captured by the shell function.
+// wf pick renders TUI directly to /dev/tty, so no fd swap is needed —
+// stdout carries only the selected command.
 const BashScript = `# wf shell integration for bash
 # Usage: eval "$(wf init bash)"
 
 _wf_picker() {
   local output
-  # Swap fd: TUI on stderr (terminal), selection on stdout (captured)
-  output=$(wf pick 3>&1 1>&2 2>&3)
+  output=$(wf pick)
   if [[ -n "$output" ]]; then
     READLINE_LINE="$output"
     READLINE_POINT=${#READLINE_LINE}

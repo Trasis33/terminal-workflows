@@ -10,6 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// openTTY opens /dev/tty for direct terminal access, bypassing any
+// fd redirection from shell integration scripts. This ensures the
+// Bubble Tea TUI always renders to the real terminal, while stdout
+// remains available for shell capture of the selected command.
+func openTTY() (*os.File, error) {
+	return os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+}
+
 var pickCmd = &cobra.Command{
 	Use:   "pick",
 	Short: "Launch fuzzy workflow picker",
@@ -41,11 +49,22 @@ func runPick(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Open /dev/tty for TUI output. This ensures the picker always renders
+	// to the real terminal regardless of shell fd redirection (e.g., the
+	// shell integration captures stdout, but we need TUI on the terminal).
+	tty, err := openTTY()
+	if err != nil {
+		// Fallback to stderr if /dev/tty unavailable (e.g., Windows)
+		tty = os.Stderr
+	} else {
+		defer tty.Close()
+	}
+
 	m := picker.New(workflows)
 	p := tea.NewProgram(
 		m,
-		tea.WithAltScreen(),       // Clean overlay, restores on exit
-		tea.WithOutput(os.Stderr), // TUI renders to stderr (Pitfall 1)
+		tea.WithAltScreen(), // Clean overlay, restores on exit
+		tea.WithOutput(tty), // TUI renders to /dev/tty (always the terminal)
 	)
 
 	final, err := p.Run()
