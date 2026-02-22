@@ -40,10 +40,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Management TUI
 
-- [ ] **MTUI-01**: User can launch a full-screen TUI for managing workflows
-- [ ] **MTUI-02**: User can create, edit, and delete workflows from the TUI
-- [ ] **MTUI-03**: User can browse workflows organized by folders and tags
-- [ ] **MTUI-04**: User can customize TUI theme (colors, layout)
+- [x] **MTUI-01**: User can launch a full-screen TUI for managing workflows
+- [x] **MTUI-02**: User can create, edit, and delete workflows from the TUI
+- [x] **MTUI-03**: User can browse workflows organized by folders and tags
+- [x] **MTUI-04**: User can customize TUI theme (colors, layout)
 
 ### Shell Integration
 
@@ -130,10 +130,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PICK-02 | Phase 2 | Complete |
 | PICK-03 | Phase 2 | Complete |
 | PICK-04 | Phase 2 | Complete |
-| MTUI-01 | Phase 3 | Pending |
-| MTUI-02 | Phase 3 | Pending |
-| MTUI-03 | Phase 3 | Pending |
-| MTUI-04 | Phase 3 | Pending |
+| MTUI-01 | Phase 3 | Complete |
+| MTUI-02 | Phase 3 | Complete |
+| MTUI-03 | Phase 3 | Complete |
+| MTUI-04 | Phase 3 | Complete |
 | SHEL-01 | Phase 2 | Complete |
 | SHEL-02 | Phase 2 | Complete |
 | SHEL-03 | Phase 2 | Complete |
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-22 after Phase 2 completion*
+*Last updated: 2026-02-22 after Phase 3 completion*

@@ -19,7 +19,7 @@ Keyboard shortcuts:
   d        Delete selected workflow
   /        Search workflows
   tab      Toggle sidebar (folders/tags)
-  ctrl+t   Open settings
+  S        Open settings
   q        Quit`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return manage.Run(getStore())
