@@ -25,4 +25,12 @@ zle -N _wf_picker
 bindkey -M emacs '^G' _wf_picker
 bindkey -M viins '^G' _wf_picker
 bindkey -M vicmd '^G' _wf_picker
+
+_wf_precmd() {
+  local _wf_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wf"
+  [[ -d "$_wf_dir" ]] || mkdir -p "$_wf_dir"
+  print -r -- "$history[1]" > "$_wf_dir/last_cmd"
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _wf_precmd
 `

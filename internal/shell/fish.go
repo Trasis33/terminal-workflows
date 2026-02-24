@@ -19,4 +19,10 @@ function _wf_picker
 end
 bind \cg _wf_picker
 bind -M insert \cg _wf_picker
+
+function _wf_postexec --on-event fish_postexec
+  set -l _wf_dir (test -n "$XDG_DATA_HOME" && echo "$XDG_DATA_HOME" || echo "$HOME/.local/share")"/wf"
+  mkdir -p "$_wf_dir"
+  printf '%s' $argv[1] > "$_wf_dir/last_cmd"
+end
 `
