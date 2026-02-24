@@ -87,6 +87,10 @@ Recent decisions affecting current work:
 - [03-05-D2] Settings keybinding changed from ctrl+t to S (shift-s) — avoids Aerospace/i3/sway conflicts
 - [04-01-D1] parseInner returns Param directly instead of (name, def) tuple — cleaner API, all fields populated in one place
 - [04-01-D2] ParamType uses iota for in-memory efficiency; Arg.Type uses string for YAML readability
+- [04-02-D1] Parse fish history line-by-line, not with YAML parser — pseudo-YAML breaks real parsers
+- [04-02-D2] Non-numeric bash # lines treated as regular commands
+- [04-02-D3] Mixed zsh format = plain entries first then extended (not interleaved)
+- [04-02-D4] Extract shared lastN/last helpers instead of duplicating across readers
 - [04-03-D1] Manual multi-document YAML splitting via bytes.Split — goccy/go-yaml lacks clean multi-document decoder
 - [04-03-D2] *string pointer for Warp default_value to distinguish null from empty string
 - [04-03-D3] Intentional slug logic duplication in paramconv.go (without .yaml) vs store.Workflow.Filename()
