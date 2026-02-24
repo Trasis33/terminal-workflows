@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation & Data Layer** - YAML storage, template engine, and project scaffold
 - [x] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
 - [x] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
-- [ ] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
+- [x] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
 - [ ] **Phase 5: AI Integration** - Copilot SDK workflow generation and metadata auto-fill
 - [ ] **Phase 6: Distribution & Sharing** - Cross-platform binary, shell completions, git-based sharing
 
@@ -88,7 +88,7 @@ Plans:
   - [x] 04-03-PLAN.md — Pet TOML and Warp YAML import converters (TDD)
   - [x] 04-04-PLAN.md — Paramfill UI extension for enum/dynamic selection
   - [x] 04-05-PLAN.md — `wf register` command with history capture and auto-detection
-  - [ ] 04-06-PLAN.md — `wf import` command with preview/conflict handling + end-to-end verification
+  - [x] 04-06-PLAN.md — `wf import` command with preview/conflict handling + end-to-end verification
 
 ### Phase 5: AI Integration
 **Goal**: Users can generate workflows from natural language descriptions and auto-fill metadata via the Copilot SDK, with graceful degradation when the SDK is unavailable
@@ -120,7 +120,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
-| 4. Advanced Parameters & Import | 5/6 | 🔄 In Progress | - |
+| 4. Advanced Parameters & Import | 6/6 | ✅ Complete | 2026-02-24 |
 | 5. AI Integration | 0/0 | Not started | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
 

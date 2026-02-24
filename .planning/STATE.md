@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 4 in progress — Advanced Parameters & Import
+**Current focus:** Phase 4 complete — Ready for Phase 5 (AI Integration)
 
 ## Current Position
 
-Phase: 4 of 6 (Advanced Parameters & Import)
-Plan: 5 of 6 in current phase
-Status: In progress
-Last activity: 2026-02-24 — Completed 04-05-PLAN.md (wf register command with history capture and auto-detection)
+Phase: 4 of 6 (Advanced Parameters & Import) — COMPLETE
+Plan: 6 of 6 in current phase
+Status: Phase complete
+Last activity: 2026-02-24 — Completed 04-06-PLAN.md (wf import command with preview/conflict handling)
 
-Progress: [██████████████████░] 95% (18/19 defined plans)
+Progress: [███████████████████] 100% (19/19 defined plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: ~3.6 minutes
-- Total execution time: ~1.15 hours
+- Total plans completed: 19
+- Average duration: ~3.8 minutes
+- Total execution time: ~1.23 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [██████████████████░] 95% (18/19
 | 1. Foundation | 4/4 | ~20 min | ~5 min |
 | 2. Quick Picker | 4/4 | ~25 min | ~6 min |
 | 3. Management TUI | 5/5 | ~43 min | ~9 min |
-| 4. Advanced Params | 5/6 | ~13 min | ~3 min |
+| 4. Advanced Params | 6/6 | ~21 min | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-05
-- Trend: Phase 4 plans averaging ~3 min (fast execution cycles)
+- Last 5 plans: 04-02, 04-03, 04-04, 04-05, 04-06
+- Trend: Phase 4 plans averaging ~4 min (fast execution cycles)
 
 *Updated after each plan completion*
 
@@ -96,6 +96,9 @@ Recent decisions affecting current work:
 - [04-04-D3] Failed dynamic params fall back to free-text input
 - [04-05-D1] URLs detected first, then IPs/paths skip URL ranges to avoid duplicates
 - [04-05-D2] Port detection requires 4-5 digits after colon (avoids false positives on short numbers)
+- [04-06-D1] Warning map dual-key lookup (raw name + description) for Pet format compatibility
+- [04-06-D2] YAML comment injection is best-effort (silent failure on file I/O errors)
+- [04-06-D3] No root.go modification needed — 04-05 already wired importCmd alongside registerCmd
 
 ### Pending Todos
 
@@ -109,5 +112,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04-05-PLAN.md — Phase 4 in progress (5/6 plans done)
+Stopped at: Completed 04-06-PLAN.md — Phase 4 COMPLETE (6/6 plans done). Ready for Phase 5.
 Resume file: None
