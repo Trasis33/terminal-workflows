@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Quick Picker & Shell Integration** - Fuzzy search, parameter filling, paste-to-prompt
 - [x] **Phase 3: Management TUI** - Full-screen workflow creation, editing, and browsing
 - [x] **Phase 4: Advanced Parameters & Import** - Enum/dynamic params, Pet/Warp import, register previous command
-- [ ] **Phase 5: AI Integration** - Copilot SDK workflow generation and metadata auto-fill
+- [x] **Phase 5: AI Integration** - Copilot SDK workflow generation and metadata auto-fill
 - [ ] **Phase 6: Distribution & Sharing** - Cross-platform binary, shell completions, git-based sharing
 
 ## Phase Details
@@ -104,7 +104,7 @@ Plans:
 Plans:
   - [x] 05-01-PLAN.md — AI package foundation (Generator interface, Copilot SDK, availability, prompts, config)
   - [x] 05-02-PLAN.md — CLI commands (`wf generate` + `wf autofill`) with graceful degradation
-  - [ ] 05-03-PLAN.md — TUI AI integration (keybindings, async execution, form pre-fill)
+  - [x] 05-03-PLAN.md — TUI AI integration (keybindings, async execution, form pre-fill)
 
 ### Phase 6: Distribution & Sharing
 **Goal**: Users can share workflow collections via git, use shell completions, and install wf on Windows with PowerShell support
@@ -127,7 +127,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
 | 4. Advanced Parameters & Import | 8/8 | ✅ Complete | 2026-02-24 |
-| 5. AI Integration | 1/3 | In progress | - |
+| 5. AI Integration | 3/3 | ✅ Complete | 2026-02-24 |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
 
 ## Requirement Coverage
