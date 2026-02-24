@@ -143,7 +143,7 @@ func (d DialogModel) Update(msg tea.Msg) (DialogModel, tea.Cmd) {
 	switch d.dtype {
 	case dialogDeleteConfirm, dialogFolderDelete:
 		return d.updateConfirm(keyMsg)
-	case dialogFolderCreate, dialogFolderRename:
+	case dialogFolderCreate, dialogFolderRename, dialogAIGenerate:
 		return d.updateInput(keyMsg)
 	case dialogMoveWorkflow:
 		return d.updateMove(keyMsg)

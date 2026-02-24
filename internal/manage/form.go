@@ -73,10 +73,14 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 		existingFolders: existingFolders,
 	}
 
-	if mode == "edit" && wf != nil {
-		m.originalName = wf.Name
+	if wf != nil {
+		if mode == "edit" {
+			m.originalName = wf.Name
+		}
 
-		// Extract folder from name (everything before last /).
+		// Pre-fill fields from the provided workflow.
+		// For edit mode this restores existing values; for create mode
+		// this enables AI-generated pre-fill of a new workflow form.
 		if idx := strings.LastIndex(wf.Name, "/"); idx >= 0 {
 			m.vals.folder = wf.Name[:idx]
 			m.vals.name = wf.Name[idx+1:]

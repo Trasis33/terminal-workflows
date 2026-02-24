@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fredriklanga/wf/internal/ai"
 	"github.com/fredriklanga/wf/internal/store"
 )
 
@@ -65,6 +66,10 @@ type Model struct {
 
 	// Dialog overlay (nil = no dialog active).
 	dialog *DialogModel
+
+	// AI loading state.
+	aiLoading     bool
+	aiLoadingTask string
 }
 
 // Init returns the initial command for the management TUI.
@@ -116,6 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case switchToBrowseMsg:
 		m.prevState = m.state
 		m.state = viewBrowse
+		m.aiLoading = false
 		return m, nil
 
 	case workflowSavedMsg:
@@ -188,6 +194,61 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.browse.SetDimensions(m.width, m.height)
 		}
 		return m, nil
+
+	// --- AI messages ---
+
+	case showAIGenerateDialogMsg:
+		dlg := NewAIGenerateDialog(m.theme)
+		m.dialog = &dlg
+		return m, dlg.Init()
+
+	case showAIAutofillDialogMsg:
+		if !ai.IsAvailable() {
+			m.browse.aiError = "AI unavailable: " + ai.ErrUnavailable.Error()
+			return m, nil
+		}
+		// Start autofill with all fields.
+		m.aiLoading = true
+		m.aiLoadingTask = "Auto-filling metadata..."
+		return m, autofillWorkflowCmd(msg.workflow, []string{"name", "description", "tags", "args"})
+
+	case aiGenerateResultMsg:
+		m.aiLoading = false
+		if msg.err != nil {
+			m.browse.aiError = "AI generate failed: " + msg.err.Error()
+			return m, nil
+		}
+		// Build a workflow from the AI result and open create form with pre-fill.
+		wf := store.Workflow{
+			Name:        msg.result.Name,
+			Command:     msg.result.Command,
+			Description: msg.result.Description,
+			Tags:        msg.result.Tags,
+			Args:        msg.result.Args,
+		}
+		m.prevState = m.state
+		m.state = viewCreate
+		folders := extractFolders(m.workflows)
+		tags := extractTags(m.workflows)
+		m.form = NewFormModel("create", &wf, m.store, tags, folders, m.theme)
+		m.form.SetDimensions(m.width, m.height)
+		return m, m.form.Init()
+
+	case aiAutofillResultMsg:
+		m.aiLoading = false
+		if msg.err != nil {
+			m.browse.aiError = "AI autofill failed: " + msg.err.Error()
+			return m, nil
+		}
+		// Merge AI result into the workflow and open edit form.
+		merged := mergeAutofillResult(msg.workflow, msg.result)
+		m.prevState = m.state
+		m.state = viewEdit
+		folders := extractFolders(m.workflows)
+		tags := extractTags(m.workflows)
+		m.form = NewFormModel("edit", &merged, m.store, tags, folders, m.theme)
+		m.form.SetDimensions(m.width, m.height)
+		return m, m.form.Init()
 	}
 
 	// Route to active view.
@@ -313,6 +374,16 @@ func (m Model) handleDialogResult(msg dialogResultMsg) (tea.Model, tea.Cmd) {
 
 			return refreshWorkflowsMsg{}
 		}
+
+	case dialogAIGenerate:
+		description := msg.data["name"] // input dialog stores value in "name" field
+		if !ai.IsAvailable() {
+			m.browse.aiError = "AI unavailable: " + ai.ErrUnavailable.Error()
+			return m, nil
+		}
+		m.aiLoading = true
+		m.aiLoadingTask = "Generating with AI..."
+		return m, generateWorkflowCmd(description)
 	}
 
 	return m, nil
@@ -355,6 +426,18 @@ func (m Model) loadWorkflows() tea.Cmd {
 
 // View renders the management TUI.
 func (m Model) View() string {
+	// Show centered loading indicator while AI request is in progress.
+	if m.aiLoading {
+		loadingText := "⣾ Generating with AI..."
+		if m.aiLoadingTask == "Auto-filling metadata..." {
+			loadingText = "⣾ Auto-filling metadata..."
+		}
+		return lipgloss.Place(m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			lipgloss.NewStyle().Foreground(lipgloss.Color("49")).Render(loadingText),
+		)
+	}
+
 	var base string
 	switch m.state {
 	case viewCreate, viewEdit:
