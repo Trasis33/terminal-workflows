@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 4 gap closure in progress — 04-07 complete, 04-08 remaining
+**Current focus:** Phase 4 gap closure complete — All UAT issues resolved, ready for Phase 5
 
 ## Current Position
 
-Phase: 4 of 6 (Advanced Parameters & Import) — Gap closure
-Plan: 7 of 8 in current phase (gap closure plans)
-Status: In progress
-Last activity: 2026-02-24 — Completed 04-07-PLAN.md (Pet tag normalization)
+Phase: 4 of 6 (Advanced Parameters & Import) — COMPLETE
+Plan: 8 of 8 in current phase (gap closure plans)
+Status: Phase complete
+Last activity: 2026-02-24 — Completed 04-08-PLAN.md (register sidecar history fix)
 
-Progress: [████████████████████] 95% (20/21 plans)
+Progress: [█████████████████████] 100% (21/21 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: ~3.8 minutes
 - Total execution time: ~1.23 hours
 
@@ -30,10 +30,10 @@ Progress: [████████████████████] 95% (20
 | 1. Foundation | 4/4 | ~20 min | ~5 min |
 | 2. Quick Picker | 4/4 | ~25 min | ~6 min |
 | 3. Management TUI | 5/5 | ~43 min | ~9 min |
-| 4. Advanced Params | 7/8 | ~22 min | ~3 min |
+| 4. Advanced Params | 8/8 | ~23 min | ~3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03, 04-04, 04-05, 04-06, 04-07
+- Last 5 plans: 04-04, 04-05, 04-06, 04-07, 04-08
 - Trend: Phase 4 plans averaging ~3 min (fast execution cycles)
 
 *Updated after each plan completion*
@@ -100,6 +100,8 @@ Recent decisions affecting current work:
 - [04-06-D2] YAML comment injection is best-effort (silent failure on file I/O errors)
 - [04-06-D3] No root.go modification needed — 04-05 already wired importCmd alongside registerCmd
 - [04-07-D1] Used interface{} + normalizeTag helper instead of custom UnmarshalTOML (go-toml v2 requires Decoder setup)
+- [04-08-D1] Sidecar file path uses XDG_DATA_HOME with ~/.local/share fallback
+- [04-08-D2] Warning printed to stderr (not stdout) to avoid polluting captured command output
 
 ### Pending Todos
 
@@ -113,5 +115,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04-07-PLAN.md — Pet tag normalization gap closure. 04-08 remaining.
+Stopped at: Completed 04-08-PLAN.md — Phase 4 gap closure COMPLETE (8/8 plans done). Ready for Phase 5.
 Resume file: None
