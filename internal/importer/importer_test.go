@@ -188,6 +188,46 @@ func TestPetImport_TagsCopied(t *testing.T) {
 	assert.Equal(t, []string{"k8s", "deploy"}, result.Workflows[0].Tags)
 }
 
+func TestPetImport_BareStringTag(t *testing.T) {
+	input := `
+[[snippets]]
+  description = "K8s snippet"
+  command     = "kubectl get pods"
+  tag         = "k8s"
+  output      = ""
+`
+	imp := &PetImporter{}
+	result, err := imp.Import(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Workflows) != 1 {
+		t.Fatalf("expected 1 workflow, got %d", len(result.Workflows))
+	}
+	want := []string{"k8s"}
+	assert.Equal(t, want, result.Workflows[0].Tags)
+}
+
+func TestPetImport_ArrayTag(t *testing.T) {
+	input := `
+[[snippets]]
+  description = "Deploy snippet"
+  command     = "kubectl apply -f deployment.yaml"
+  tag         = ["k8s", "deploy"]
+  output      = ""
+`
+	imp := &PetImporter{}
+	result, err := imp.Import(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Workflows) != 1 {
+		t.Fatalf("expected 1 workflow, got %d", len(result.Workflows))
+	}
+	want := []string{"k8s", "deploy"}
+	assert.Equal(t, want, result.Workflows[0].Tags)
+}
+
 // =============================================================================
 // Warp YAML Import Tests
 // =============================================================================
