@@ -236,7 +236,7 @@ source_url: "https://example.com"
 	result, err := imp.Import(strings.NewReader(yaml))
 	require.NoError(t, err)
 	require.Len(t, result.Workflows, 1)
-	assert.Contains(t, warningsContain(result.Warnings, "source_url"), true)
+	assert.True(t, warningsContain(result.Warnings, "source_url"))
 }
 
 func TestWarpImport_AuthorWarnings(t *testing.T) {
