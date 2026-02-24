@@ -318,7 +318,7 @@ func TestModelConfigForTask(t *testing.T) {
 			name:     "all empty falls to default",
 			config:   ModelConfig{},
 			task:     "generate",
-			expected: "gpt-4o-mini",
+			expected: "gpt-4.1",
 		},
 	}
 
@@ -331,7 +331,7 @@ func TestModelConfigForTask(t *testing.T) {
 
 func TestDefaultModelConfig(t *testing.T) {
 	cfg := DefaultModelConfig()
-	assert.Equal(t, "gpt-4o", cfg.Generate)
-	assert.Equal(t, "gpt-4o-mini", cfg.Autofill)
-	assert.Equal(t, "gpt-4o-mini", cfg.Fallback)
+	assert.Equal(t, "gpt-5-mini", cfg.Generate)
+	assert.Equal(t, "gpt-4.1", cfg.Autofill)
+	assert.Equal(t, "gpt-4.1", cfg.Fallback)
 }
