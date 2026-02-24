@@ -1,7 +1,12 @@
 // Package history provides shell history file parsing for zsh, bash, and fish.
 package history
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var errNoHistory = errors.New("no history entries")
 
 // HistoryEntry represents a single command from shell history.
 type HistoryEntry struct {

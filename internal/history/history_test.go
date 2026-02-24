@@ -55,37 +55,45 @@ func TestParseZshPlain(t *testing.T) {
 }
 
 func TestParseZshMixed(t *testing.T) {
-	// Mixed format: some extended, some plain
-	data := []byte(": 1471766804:3;git push origin master\nls -la\n: 1471767000:15;docker build -t myapp .\n")
+	// Mixed format: plain entries first (before EXTENDED_HISTORY was enabled),
+	// then extended entries. This is realistic — a user enables EXTENDED_HISTORY
+	// after already having some history.
+	data := []byte("ls -la\ngit status\n: 1471766804:3;git push origin master\n: 1471767000:15;docker build -t myapp .\n")
 
 	entries := parseZshHistory(data)
 
-	if len(entries) != 3 {
-		t.Fatalf("expected 3 entries, got %d", len(entries))
+	if len(entries) != 4 {
+		t.Fatalf("expected 4 entries, got %d", len(entries))
 	}
 
-	// First is extended
-	if entries[0].Command != "git push origin master" {
-		t.Errorf("entry 0 command = %q, want %q", entries[0].Command, "git push origin master")
+	// First two are plain
+	if entries[0].Command != "ls -la" {
+		t.Errorf("entry 0 command = %q, want %q", entries[0].Command, "ls -la")
 	}
-	if entries[0].Timestamp.IsZero() {
-		t.Error("entry 0 should have a timestamp (extended format)")
+	if !entries[0].Timestamp.IsZero() {
+		t.Errorf("entry 0 timestamp should be zero for plain format, got %v", entries[0].Timestamp)
 	}
 
-	// Second is plain
-	if entries[1].Command != "ls -la" {
-		t.Errorf("entry 1 command = %q, want %q", entries[1].Command, "ls -la")
+	if entries[1].Command != "git status" {
+		t.Errorf("entry 1 command = %q, want %q", entries[1].Command, "git status")
 	}
 	if !entries[1].Timestamp.IsZero() {
 		t.Errorf("entry 1 timestamp should be zero for plain format, got %v", entries[1].Timestamp)
 	}
 
-	// Third is extended
-	if entries[2].Command != "docker build -t myapp ." {
-		t.Errorf("entry 2 command = %q, want %q", entries[2].Command, "docker build -t myapp .")
+	// Last two are extended
+	if entries[2].Command != "git push origin master" {
+		t.Errorf("entry 2 command = %q, want %q", entries[2].Command, "git push origin master")
 	}
 	if entries[2].Timestamp.IsZero() {
 		t.Error("entry 2 should have a timestamp (extended format)")
+	}
+
+	if entries[3].Command != "docker build -t myapp ." {
+		t.Errorf("entry 3 command = %q, want %q", entries[3].Command, "docker build -t myapp .")
+	}
+	if entries[3].Timestamp.IsZero() {
+		t.Error("entry 3 should have a timestamp (extended format)")
 	}
 }
 
