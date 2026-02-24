@@ -51,35 +51,15 @@ type bashReader struct {
 }
 
 func (r *bashReader) LastN(n int) ([]HistoryEntry, error) {
-	data := r.data
-	if data == nil {
+	if r.data == nil {
 		return nil, nil
 	}
-
-	entries := parseBashHistory(data)
-
-	if n <= 0 {
-		return nil, nil
-	}
-	if n > len(entries) {
-		n = len(entries)
-	}
-
-	// Return last n entries, newest first
-	result := make([]HistoryEntry, n)
-	for i := 0; i < n; i++ {
-		result[i] = entries[len(entries)-1-i]
-	}
-	return result, nil
+	return lastN(parseBashHistory(r.data), n), nil
 }
 
 func (r *bashReader) Last() (HistoryEntry, error) {
-	entries, err := r.LastN(1)
-	if err != nil {
-		return HistoryEntry{}, err
-	}
-	if len(entries) == 0 {
+	if r.data == nil {
 		return HistoryEntry{}, errNoHistory
 	}
-	return entries[0], nil
+	return last(parseBashHistory(r.data))
 }

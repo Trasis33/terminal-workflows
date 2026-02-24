@@ -76,13 +76,9 @@ func parseZshHistory(data []byte) []HistoryEntry {
 	}
 
 	infos := make([]lineInfo, len(lines))
-	hasAnyExtended := false
 	for i, line := range lines {
 		cmd, ts, isExt := parseZshExtendedLine(line)
 		infos[i] = lineInfo{text: line, isExtended: isExt, cmd: cmd, ts: ts}
-		if isExt {
-			hasAnyExtended = true
-		}
 	}
 
 	var entries []HistoryEntry
@@ -102,12 +98,9 @@ func parseZshHistory(data []byte) []HistoryEntry {
 				entry.Command += "\n" + infos[i].text
 			}
 			entries = append(entries, entry)
-		} else if !hasAnyExtended {
-			// Pure plain format — each line is a command
-			entries = append(entries, HistoryEntry{Command: info.text})
 		} else {
-			// Mixed format: a non-extended line when extended lines exist.
-			// This is a plain command interspersed with extended entries.
+			// Plain format line — either pure plain file or a pre-EXTENDED_HISTORY
+			// entry in a mixed file. Both cases: treat as a standalone command.
 			entries = append(entries, HistoryEntry{Command: info.text})
 		}
 	}
@@ -126,33 +119,15 @@ func (r *zshReader) LastN(n int) ([]HistoryEntry, error) {
 	if data == nil {
 		return nil, nil
 	}
-	// Unmetafy the data
 	data = unmetafy(data)
-
-	entries := parseZshHistory(data)
-
-	if n <= 0 {
-		return nil, nil
-	}
-	if n > len(entries) {
-		n = len(entries)
-	}
-
-	// Return last n entries, newest first
-	result := make([]HistoryEntry, n)
-	for i := 0; i < n; i++ {
-		result[i] = entries[len(entries)-1-i]
-	}
-	return result, nil
+	return lastN(parseZshHistory(data), n), nil
 }
 
 func (r *zshReader) Last() (HistoryEntry, error) {
-	entries, err := r.LastN(1)
-	if err != nil {
-		return HistoryEntry{}, err
-	}
-	if len(entries) == 0 {
+	data := r.data
+	if data == nil {
 		return HistoryEntry{}, errNoHistory
 	}
-	return entries[0], nil
+	data = unmetafy(data)
+	return last(parseZshHistory(data))
 }
