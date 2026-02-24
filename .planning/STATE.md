@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 4 gap closure complete — All UAT issues resolved, ready for Phase 5
+**Current focus:** Phase 5 AI Integration — Plan 01 complete, Generator interface and Copilot SDK foundation built
 
 ## Current Position
 
-Phase: 4 of 6 (Advanced Parameters & Import) — COMPLETE
-Plan: 8 of 8 in current phase (gap closure plans)
-Status: Phase complete
-Last activity: 2026-02-24 — Completed 04-08-PLAN.md (register sidecar history fix)
+Phase: 5 of 6 (AI Integration)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-24 — Completed 05-01-PLAN.md (AI package foundation)
 
-Progress: [█████████████████████] 100% (21/21 plans)
+Progress: [██████████████████████░░░] 92% (22/24 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: ~3.8 minutes
-- Total execution time: ~1.23 hours
+- Total plans completed: 22
+- Average duration: ~3.7 minutes
+- Total execution time: ~1.30 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [█████████████████████] 100%
 | 2. Quick Picker | 4/4 | ~25 min | ~6 min |
 | 3. Management TUI | 5/5 | ~43 min | ~9 min |
 | 4. Advanced Params | 8/8 | ~23 min | ~3 min |
+| 5. AI Integration | 1/3 | ~4 min | ~4 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-04, 04-05, 04-06, 04-07, 04-08
-- Trend: Phase 4 plans averaging ~3 min (fast execution cycles)
+- Last 5 plans: 04-06, 04-07, 04-08, 05-01
+- Trend: Fast execution cycles (~3-4 min)
 
 *Updated after each plan completion*
 
@@ -102,6 +103,11 @@ Recent decisions affecting current work:
 - [04-07-D1] Used interface{} + normalizeTag helper instead of custom UnmarshalTOML (go-toml v2 requires Decoder setup)
 - [04-08-D1] Sidecar file path uses XDG_DATA_HOME with ~/.local/share fallback
 - [04-08-D2] Warning printed to stderr (not stdout) to avoid polluting captured command output
+- [05-01-D1] All ai package source files created in Task 1 — Go requires all package files to compile together
+- [05-01-D2] AIModelConfig/AISettings/AppConfig types defined in config package to avoid circular imports
+- [05-01-D3] ForTask() uses triple fallback: task-specific → Fallback → hardcoded gpt-4o-mini
+- [05-01-D4] extractJSON helper handles markdown fences, raw JSON with prefix text, empty strings
+- [05-01-D5] Copilot SDK API adapted from research — client.Start(ctx), session.Destroy() returns error, Data.Content is *string
 
 ### Pending Todos
 
@@ -109,11 +115,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- Research flags TIOCSTI deprecation as Phase 2 blocker — must use shell function wrappers, not ioctl (resolved: shell function wrappers implemented)
-- Copilot CLI SDK is technical preview (Jan 2026) — re-assess stability before Phase 5 planning
+- Copilot CLI SDK is technical preview (Jan 2026) — API may change; current implementation uses v0.1.25
 
 ## Session Continuity
 
-Last session: 2026-02-24
-Stopped at: Completed 04-08-PLAN.md — Phase 4 gap closure COMPLETE (8/8 plans done). Ready for Phase 5.
+Last session: 2026-02-24T21:07:24Z
+Stopped at: Completed 05-01-PLAN.md — AI package foundation complete (1/3 plans). Ready for 05-02 (CLI commands).
 Resume file: None

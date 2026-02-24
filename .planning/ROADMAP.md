@@ -102,7 +102,7 @@ Plans:
   3. All wf features work normally when the Copilot SDK is unavailable — AI commands show a clear "unavailable" message, nothing else breaks
 **Plans:** 3 plans
 Plans:
-  - [ ] 05-01-PLAN.md — AI package foundation (Generator interface, Copilot SDK, availability, prompts, config)
+  - [x] 05-01-PLAN.md — AI package foundation (Generator interface, Copilot SDK, availability, prompts, config)
   - [ ] 05-02-PLAN.md — CLI commands (`wf generate` + `wf autofill`) with graceful degradation
   - [ ] 05-03-PLAN.md — TUI AI integration (keybindings, async execution, form pre-fill)
 
@@ -127,7 +127,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
 | 4. Advanced Parameters & Import | 8/8 | ✅ Complete | 2026-02-24 |
-| 5. AI Integration | 0/3 | In progress | - |
+| 5. AI Integration | 1/3 | In progress | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
 
 ## Requirement Coverage
