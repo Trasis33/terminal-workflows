@@ -16,9 +16,12 @@ type Workflow struct {
 
 // Arg defines a named parameter for a workflow command.
 type Arg struct {
-	Name        string `yaml:"name"`
-	Default     string `yaml:"default,omitempty"`
-	Description string `yaml:"description,omitempty"`
+	Name        string   `yaml:"name"`
+	Default     string   `yaml:"default,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Type        string   `yaml:"type,omitempty"`        // "text" (default/omitted), "enum", "dynamic"
+	Options     []string `yaml:"options,omitempty"`     // For enum type
+	DynamicCmd  string   `yaml:"dynamic_cmd,omitempty"` // For dynamic type
 }
 
 var slugRe = regexp.MustCompile(`[^a-z0-9-]+`)
