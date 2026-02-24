@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 4 of 6 (Advanced Parameters & Import)
-Plan: 4 of 6 in current phase
+Plan: 5 of 6 in current phase
 Status: In progress
-Last activity: 2026-02-24 — Completed 04-04-PLAN.md (Paramfill UI extension for enum/dynamic)
+Last activity: 2026-02-24 — Completed 04-05-PLAN.md (wf register command with history capture and auto-detection)
 
-Progress: [█████████████████░░] 89% (17/19 defined plans)
+Progress: [██████████████████░] 95% (18/19 defined plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17
-- Average duration: ~3.7 minutes
-- Total execution time: ~1.1 hours
+- Total plans completed: 18
+- Average duration: ~3.6 minutes
+- Total execution time: ~1.15 hours
 
 **By Phase:**
 
@@ -30,10 +30,10 @@ Progress: [█████████████████░░] 89% (17/19
 | 1. Foundation | 4/4 | ~20 min | ~5 min |
 | 2. Quick Picker | 4/4 | ~25 min | ~6 min |
 | 3. Management TUI | 5/5 | ~43 min | ~9 min |
-| 4. Advanced Params | 4/6 | ~11 min | ~3 min |
+| 4. Advanced Params | 5/6 | ~13 min | ~3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 04-02, 04-03, 04-04
+- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-05
 - Trend: Phase 4 plans averaging ~3 min (fast execution cycles)
 
 *Updated after each plan completion*
@@ -94,6 +94,8 @@ Recent decisions affecting current work:
 - [04-04-D1] Parallel arrays for param state instead of new struct — keeps textinput[] and liveRender compatible
 - [04-04-D2] 5-second timeout for dynamic commands via context.WithTimeout
 - [04-04-D3] Failed dynamic params fall back to free-text input
+- [04-05-D1] URLs detected first, then IPs/paths skip URL ranges to avoid duplicates
+- [04-05-D2] Port detection requires 4-5 digits after colon (avoids false positives on short numbers)
 
 ### Pending Todos
 
@@ -107,5 +109,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24
-Stopped at: Completed 04-04-PLAN.md — Phase 4 in progress (4/6 plans done)
+Stopped at: Completed 04-05-PLAN.md — Phase 4 in progress (5/6 plans done)
 Resume file: None
