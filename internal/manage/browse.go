@@ -36,6 +36,8 @@ type BrowseModel struct {
 	filterType  string // "folder", "tag", or "" (from sidebar)
 	filterValue string // the folder path or tag name
 
+	aiError string // transient AI error, cleared on next key press
+
 	width  int
 	height int
 	theme  Theme
@@ -151,6 +153,9 @@ func (b BrowseModel) Update(msg tea.Msg) (BrowseModel, tea.Cmd) {
 		return b, nil
 
 	case tea.KeyMsg:
+		// Clear transient AI error on any key press.
+		b.aiError = ""
+
 		if b.searching {
 			return b.updateSearch(msg)
 		}
@@ -223,6 +228,16 @@ func (b BrowseModel) updateListFocus(msg tea.KeyMsg) (BrowseModel, tea.Cmd) {
 
 	case "S":
 		return b, func() tea.Msg { return switchToSettingsMsg{} }
+
+	case "G":
+		return b, func() tea.Msg { return showAIGenerateDialogMsg{} }
+
+	case "A":
+		if len(b.filtered) > 0 {
+			wf := b.filtered[b.cursor]
+			return b, func() tea.Msg { return showAIAutofillDialogMsg{workflow: wf} }
+		}
+		return b, nil
 
 	case "q":
 		return b, tea.Quit
@@ -470,13 +485,19 @@ func browsetruncate(s string, maxLen int) string {
 
 // renderHints renders context-sensitive keybinding hints.
 func (b BrowseModel) renderHints(s themeStyles) string {
+	// Show transient AI error instead of normal hints if set.
+	if b.aiError != "" {
+		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		return errStyle.Render("  ⚠ " + b.aiError)
+	}
+
 	var hints string
 	if b.searching {
 		hints = "esc cancel  enter confirm"
 	} else if b.focus == focusSidebar {
 		hints = "↑↓ navigate  enter filter  →/esc list  tab folders/tags  q quit"
 	} else {
-		hints = "n new  e edit  d delete  m move  / search  tab folders/tags  ←/h sidebar  S settings  q quit"
+		hints = "n new  e edit  d delete  m move  G generate  A autofill  / search  tab folders/tags  ←/h sidebar  S settings  q quit"
 	}
 	return s.Hint.Render("  " + hints)
 }
