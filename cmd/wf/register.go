@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -137,6 +138,25 @@ func pickFromHistory(scanner *bufio.Scanner) (string, error) {
 }
 
 func lastFromHistory() (string, error) {
+	// Priority 1: Read sidecar file (written by shell integration hooks)
+	dataHome := os.Getenv("XDG_DATA_HOME")
+	if dataHome == "" {
+		home, _ := os.UserHomeDir()
+		dataHome = filepath.Join(home, ".local", "share")
+	}
+	sidecarPath := filepath.Join(dataHome, "wf", "last_cmd")
+
+	if data, err := os.ReadFile(sidecarPath); err == nil {
+		cmd := strings.TrimSpace(string(data))
+		if cmd != "" {
+			return cmd, nil
+		}
+	}
+
+	// Priority 2: Fall back to $HISTFILE with warning
+	fmt.Fprintln(os.Stderr, "Warning: shell integration not active — reading $HISTFILE which may not contain your most recent command.")
+	fmt.Fprintln(os.Stderr, "Tip: run 'eval \"$(wf init zsh)\"' (or bash/fish) in your shell config to enable accurate history capture.")
+
 	reader, err := history.NewReader()
 	if err != nil {
 		return "", fmt.Errorf("reading shell history: %w\nTip: use 'wf register <command>' to register a command directly", err)
