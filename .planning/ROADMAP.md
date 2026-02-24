@@ -81,7 +81,7 @@ Plans:
   2. User can define dynamic parameters that populate options from a shell command's output at fill time
   3. User can run `wf register` (or similar) to capture their previous shell command and save it as a new workflow
   4. User can run `wf import` to convert a Pet TOML file or Warp YAML file into wf-compatible workflows
-**Plans:** 6 plans
+**Plans:** 8 plans (6 original + 2 gap closure)
 Plans:
   - [x] 04-01-PLAN.md — Template parser extension for enum/dynamic params + Arg struct (TDD)
   - [x] 04-02-PLAN.md — Shell history parsers for zsh/bash/fish (TDD)
@@ -89,6 +89,8 @@ Plans:
   - [x] 04-04-PLAN.md — Paramfill UI extension for enum/dynamic selection
   - [x] 04-05-PLAN.md — `wf register` command with history capture and auto-detection
   - [x] 04-06-PLAN.md — `wf import` command with preview/conflict handling + end-to-end verification
+  - [x] 04-07-PLAN.md — Pet TOML bare-string tag normalization (gap closure)
+  - [x] 04-08-PLAN.md — Shell sidecar for `wf register` current-session capture (gap closure)
 
 ### Phase 5: AI Integration
 **Goal**: Users can generate workflows from natural language descriptions and auto-fill metadata via the Copilot SDK, with graceful degradation when the SDK is unavailable
@@ -120,7 +122,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
-| 4. Advanced Parameters & Import | 6/6 | ✅ Complete | 2026-02-24 |
+| 4. Advanced Parameters & Import | 8/8 | ✅ Complete | 2026-02-24 |
 | 5. AI Integration | 0/0 | Not started | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
 
