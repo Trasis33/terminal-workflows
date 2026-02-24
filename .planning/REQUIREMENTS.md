@@ -13,15 +13,15 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **STOR-02**: User can edit an existing workflow's command, description, tags, and arguments
 - [x] **STOR-03**: User can delete a workflow
 - [x] **STOR-04**: User can save multiline commands as a single workflow
-- [ ] **STOR-05**: User can register the previous shell command as a new workflow
+- [x] **STOR-05**: User can register the previous shell command as a new workflow
 - [x] **STOR-06**: Workflows are stored as human-readable YAML files in `~/.config/wf/`
 
 ### Parameters
 
 - [x] **PARM-01**: User can define `{{named}}` parameters in workflow commands
 - [x] **PARM-02**: User can set default values for parameters
-- [ ] **PARM-03**: User can define enum parameters with predefined option lists
-- [ ] **PARM-04**: User can define dynamic parameters populated by shell command output
+- [x] **PARM-03**: User can define enum parameters with predefined option lists
+- [x] **PARM-04**: User can define dynamic parameters populated by shell command output
 - [x] **PARM-05**: Named parameters used multiple times in a command auto-fill from a single input
 - [x] **PARM-06**: User fills parameters inline with the full command visible
 
@@ -67,8 +67,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Import
 
-- [ ] **IMPT-01**: User can import workflows from Pet TOML format
-- [ ] **IMPT-02**: User can import workflows from Warp YAML format
+- [x] **IMPT-01**: User can import workflows from Pet TOML format
+- [x] **IMPT-02**: User can import workflows from Warp YAML format
 
 ## v2 Requirements
 
@@ -115,12 +115,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STOR-02 | Phase 1 | Complete |
 | STOR-03 | Phase 1 | Complete |
 | STOR-04 | Phase 1 | Complete |
-| STOR-05 | Phase 4 | Pending |
+| STOR-05 | Phase 4 | Complete |
 | STOR-06 | Phase 1 | Complete |
 | PARM-01 | Phase 1 | Complete |
 | PARM-02 | Phase 1 | Complete |
-| PARM-03 | Phase 4 | Pending |
-| PARM-04 | Phase 4 | Pending |
+| PARM-03 | Phase 4 | Complete |
+| PARM-04 | Phase 4 | Complete |
 | PARM-05 | Phase 1 | Complete |
 | PARM-06 | Phase 2 | Complete |
 | SRCH-01 | Phase 2 | Complete |
@@ -145,8 +145,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AIFL-01 | Phase 5 | Pending |
 | AIFL-02 | Phase 5 | Pending |
 | AIFL-03 | Phase 5 | Pending |
-| IMPT-01 | Phase 4 | Pending |
-| IMPT-02 | Phase 4 | Pending |
+| IMPT-01 | Phase 4 | Complete |
+| IMPT-02 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 36 total
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-22 after Phase 3 completion*
+*Last updated: 2026-02-24 after Phase 4 completion*
