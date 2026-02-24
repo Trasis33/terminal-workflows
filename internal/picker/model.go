@@ -45,10 +45,15 @@ type Model struct {
 	preview     viewport.Model
 
 	// Param fill state
-	selected     *store.Workflow
-	params       []template.Param
-	paramInputs  []textinput.Model
-	focusedParam int
+	selected          *store.Workflow
+	params            []template.Param
+	paramInputs       []textinput.Model
+	focusedParam      int
+	paramTypes        []template.ParamType // type per param (text/enum/dynamic)
+	paramOptions      [][]string           // options for enum/dynamic params (nil for text)
+	paramOptionCursor []int                // cursor position within each param's option list
+	paramLoading      []bool               // true while dynamic command is executing
+	paramFailed       []bool               // true if dynamic command failed (fallback to text)
 
 	// Result is the final output command, read by caller after tea.Quit.
 	Result string
@@ -110,6 +115,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.flashMsg = ""
 		return m, nil
 
+	case dynamicResultMsg:
+		return m.handleDynamicResult(msg)
+
 	case tea.KeyMsg:
 		switch m.state {
 		case StateSearch:
@@ -158,6 +166,11 @@ func (m Model) updateSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.selected = &wf
 		initParamFill(&m)
 		m.state = StateParamFill
+		// Fire dynamic param commands
+		cmds := initParamFillCmds(&m)
+		if len(cmds) > 0 {
+			return m, tea.Batch(cmds...)
+		}
 		return m, nil
 
 	case "ctrl+y":
@@ -210,6 +223,31 @@ func (m *Model) updatePreview() {
 	} else {
 		m.preview.SetContent("")
 	}
+}
+
+// handleDynamicResult processes a completed dynamic parameter command.
+func (m Model) handleDynamicResult(msg dynamicResultMsg) (tea.Model, tea.Cmd) {
+	idx := msg.paramIndex
+	if idx < 0 || idx >= len(m.paramLoading) {
+		return m, nil
+	}
+
+	m.paramLoading[idx] = false
+
+	if msg.err != nil || len(msg.options) == 0 {
+		// Failed: fall back to free-text input
+		m.paramFailed[idx] = true
+		m.paramInputs[idx].Placeholder = m.params[idx].Name
+		m.paramInputs[idx].SetValue("")
+		return m, nil
+	}
+
+	// Success: populate option list
+	m.paramOptions[idx] = msg.options
+	m.paramOptionCursor[idx] = 0
+	m.paramInputs[idx].SetValue(msg.options[0])
+	m.paramInputs[idx].Placeholder = ""
+	return m, nil
 }
 
 // View renders the full picker UI.
