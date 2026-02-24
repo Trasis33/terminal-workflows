@@ -16,10 +16,32 @@ type PetFile struct {
 
 // PetSnippet represents a single snippet entry in a Pet TOML file.
 type PetSnippet struct {
-	Description string   `toml:"description"`
-	Command     string   `toml:"command"`
-	Tag         []string `toml:"tag"`
-	Output      string   `toml:"output"`
+	Description string      `toml:"description"`
+	Command     string      `toml:"command"`
+	Tag         interface{} `toml:"tag"` // accepts both string and []interface{}
+	Output      string      `toml:"output"`
+}
+
+// normalizeTag converts the raw TOML tag value (which may be a bare string or
+// an array) into a []string. Returns nil for absent or empty values.
+func normalizeTag(v interface{}) []string {
+	switch t := v.(type) {
+	case string:
+		if t == "" {
+			return nil
+		}
+		return []string{t}
+	case []interface{}:
+		out := make([]string, 0, len(t))
+		for _, s := range t {
+			if str, ok := s.(string); ok && str != "" {
+				out = append(out, str)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // PetImporter converts Pet TOML snippet files into wf Workflows.
@@ -65,7 +87,7 @@ func (p *PetImporter) Import(reader io.Reader) (*ImportResult, error) {
 			Name:        name,
 			Command:     convertedCmd,
 			Description: snippet.Description,
-			Tags:        snippet.Tag,
+			Tags:        normalizeTag(snippet.Tag),
 			Args:        args,
 		}
 
