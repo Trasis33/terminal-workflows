@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 3 complete — Management TUI
+**Current focus:** Phase 4 in progress — Advanced Parameters & Import
 
 ## Current Position
 
-Phase: 3 of 6 (Management TUI)
-Plan: 5 of 5 in current phase
-Status: Phase complete
-Last activity: 2026-02-22 — Completed 03-05-PLAN.md (cobra command wiring & end-to-end verification)
+Phase: 4 of 6 (Advanced Parameters & Import)
+Plan: 1 of 6 in current phase
+Status: In progress
+Last activity: 2026-02-24 — Completed 04-01-PLAN.md (template parser extension for enum/dynamic params)
 
-Progress: [█████████████] 100% (13/13 defined plans)
+Progress: [██████████████░░░░░] 74% (14/19 defined plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: ~4.3 minutes
-- Total execution time: ~0.9 hours
+- Total plans completed: 14
+- Average duration: ~4.1 minutes
+- Total execution time: ~0.95 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [█████████████] 100% (13/13 defined plans)
 | 1. Foundation | 4/4 | ~20 min | ~5 min |
 | 2. Quick Picker | 4/4 | ~25 min | ~6 min |
 | 3. Management TUI | 5/5 | ~43 min | ~9 min |
+| 4. Advanced Params | 1/6 | ~2 min | ~2 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-01, 03-02, 03-03, 03-04, 03-05
-- Trend: 03-05 completed in ~2 min (bug fix + keybinding change)
+- Last 5 plans: 03-03, 03-04, 03-05, 04-01
+- Trend: 04-01 completed in ~2 min (TDD parser extension, refactor skipped)
 
 *Updated after each plan completion*
 
@@ -84,6 +85,8 @@ Recent decisions affecting current work:
 - [03-04-D4] Move dialog includes (root) as first option — users need to remove folder prefixes
 - [03-05-D1] Shared *formValues struct for huh pointer stability across bubbletea value-copy cycles
 - [03-05-D2] Settings keybinding changed from ctrl+t to S (shift-s) — avoids Aerospace/i3/sway conflicts
+- [04-01-D1] parseInner returns Param directly instead of (name, def) tuple — cleaner API, all fields populated in one place
+- [04-01-D2] ParamType uses iota for in-memory efficiency; Arg.Type uses string for YAML readability
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-22
-Stopped at: Completed 03-05-PLAN.md — Phase 3 complete (all 5 plans done)
+Last session: 2026-02-24
+Stopped at: Completed 04-01-PLAN.md — Phase 4 in progress (1/6 plans done)
 Resume file: None
