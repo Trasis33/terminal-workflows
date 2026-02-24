@@ -103,7 +103,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
   - [x] 05-01-PLAN.md — AI package foundation (Generator interface, Copilot SDK, availability, prompts, config)
-  - [ ] 05-02-PLAN.md — CLI commands (`wf generate` + `wf autofill`) with graceful degradation
+  - [x] 05-02-PLAN.md — CLI commands (`wf generate` + `wf autofill`) with graceful degradation
   - [ ] 05-03-PLAN.md — TUI AI integration (keybindings, async execution, form pre-fill)
 
 ### Phase 6: Distribution & Sharing
