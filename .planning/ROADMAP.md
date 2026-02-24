@@ -86,7 +86,7 @@ Plans:
   - [x] 04-01-PLAN.md — Template parser extension for enum/dynamic params + Arg struct (TDD)
   - [x] 04-02-PLAN.md — Shell history parsers for zsh/bash/fish (TDD)
   - [x] 04-03-PLAN.md — Pet TOML and Warp YAML import converters (TDD)
-  - [ ] 04-04-PLAN.md — Paramfill UI extension for enum/dynamic selection
+  - [x] 04-04-PLAN.md — Paramfill UI extension for enum/dynamic selection
   - [ ] 04-05-PLAN.md — `wf register` command with history capture and auto-detection
   - [ ] 04-06-PLAN.md — `wf import` command with preview/conflict handling + end-to-end verification
 
@@ -120,7 +120,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 1. Foundation & Data Layer | 4/4 | ✅ Complete | 2026-02-21 |
 | 2. Quick Picker & Shell Integration | 4/4 | ✅ Complete | 2026-02-22 |
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
-| 4. Advanced Parameters & Import | 3/6 | 🔄 In Progress | - |
+| 4. Advanced Parameters & Import | 4/6 | 🔄 In Progress | - |
 | 5. AI Integration | 0/0 | Not started | - |
 | 6. Distribution & Sharing | 0/0 | Not started | - |
 
