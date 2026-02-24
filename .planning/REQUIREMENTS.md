@@ -61,9 +61,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### AI Features
 
-- [ ] **AIFL-01**: User can generate a workflow from a natural language description via Copilot SDK
-- [ ] **AIFL-02**: User can auto-fill workflow metadata (name, description, arg types) via AI
-- [ ] **AIFL-03**: AI features degrade gracefully when Copilot SDK is unavailable
+- [x] **AIFL-01**: User can generate a workflow from a natural language description via Copilot SDK
+- [x] **AIFL-02**: User can auto-fill workflow metadata (name, description, arg types) via AI
+- [x] **AIFL-03**: AI features degrade gracefully when Copilot SDK is unavailable
 
 ### Import
 
@@ -142,9 +142,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ORGN-01 | Phase 1 | Complete |
 | ORGN-02 | Phase 1 | Complete |
 | ORGN-03 | Phase 6 | Pending |
-| AIFL-01 | Phase 5 | Pending |
-| AIFL-02 | Phase 5 | Pending |
-| AIFL-03 | Phase 5 | Pending |
+| AIFL-01 | Phase 5 | Complete |
+| AIFL-02 | Phase 5 | Complete |
+| AIFL-03 | Phase 5 | Complete |
 | IMPT-01 | Phase 4 | Complete |
 | IMPT-02 | Phase 4 | Complete |
 
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-24 after Phase 4 completion*
+*Last updated: 2026-02-24 after Phase 5 completion*
