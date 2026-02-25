@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/fredriklanga/wf/internal/config"
+	"github.com/fredriklanga/wf/internal/source"
 	"github.com/fredriklanga/wf/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,7 @@ func init() {
 	rootCmd.AddCommand(registerCmd)
 	rootCmd.AddCommand(generateCmd)
 	rootCmd.AddCommand(autofillCmd)
+	rootCmd.AddCommand(sourceCmd)
 }
 
 // getStore returns the shared YAMLStore instance, creating it if needed.
@@ -44,4 +46,21 @@ func getStore() *store.YAMLStore {
 		yamlStore = store.NewYAMLStore(config.WorkflowsDir())
 	}
 	return yamlStore
+}
+
+// getMultiStore returns a Store that merges local and remote workflows.
+// If no remote sources are configured, it returns the local store directly
+// to avoid any overhead.
+func getMultiStore() store.Store {
+	local := getStore()
+	mgr := source.NewManager(config.SourcesDir())
+	sources := mgr.SourceDirs()
+	if len(sources) == 0 {
+		return local
+	}
+	remote := make(map[string]store.Store, len(sources))
+	for alias, dir := range sources {
+		remote[alias] = store.NewRemoteStore(dir)
+	}
+	return store.NewMultiStore(local, remote)
 }

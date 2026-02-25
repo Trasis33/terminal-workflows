@@ -18,7 +18,7 @@ Workflows in subfolders are included automatically.`,
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	s := getStore()
+	s := getMultiStore()
 	workflows, err := s.List()
 	if err != nil {
 		return fmt.Errorf("listing workflows: %w", err)

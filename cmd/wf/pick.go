@@ -29,7 +29,7 @@ func init() {
 
 func runPick(cmd *cobra.Command, args []string) error {
 	// Load workflows synchronously before creating tea.Program (PICK-02 performance).
-	s := getStore()
+	s := getMultiStore()
 	workflows, err := s.List()
 	if err != nil {
 		return fmt.Errorf("loading workflows: %w", err)

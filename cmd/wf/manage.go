@@ -22,6 +22,6 @@ Keyboard shortcuts:
   S        Open settings
   q        Quit`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return manage.Run(getStore())
+		return manage.Run(getMultiStore())
 	},
 }
