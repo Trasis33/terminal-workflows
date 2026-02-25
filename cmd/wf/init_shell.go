@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/fredriklanga/wf/internal/shell"
 	"github.com/spf13/cobra"
@@ -15,18 +16,20 @@ var initCmd = &cobra.Command{
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"zsh", "bash", "fish", "powershell"},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var script string
 		switch args[0] {
 		case "zsh":
-			fmt.Print(shell.ZshScript)
+			script = shell.ZshScript
 		case "bash":
-			fmt.Print(shell.BashScript)
+			script = shell.BashScript
 		case "fish":
-			fmt.Print(shell.FishScript)
+			script = shell.FishScript
 		case "powershell":
-			fmt.Print(shell.PowerShellScript)
+			script = shell.PowerShellScript
 		default:
 			return fmt.Errorf("unsupported shell: %s. Supported: zsh, bash, fish, powershell", args[0])
 		}
-		return nil
+		_, err := os.Stdout.WriteString(script)
+		return err
 	},
 }
