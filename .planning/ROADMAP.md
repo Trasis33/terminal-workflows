@@ -116,9 +116,9 @@ Plans:
 **Plans:** 4 plans
 Plans:
   - [x] 06-01-PLAN.md — Source manager + git operations + config SourcesDir
-  - [ ] 06-02-PLAN.md — RemoteStore + MultiStore (read-only remote, aggregating local+remote)
+  - [x] 06-02-PLAN.md — RemoteStore + MultiStore (read-only remote, aggregating local+remote)
   - [ ] 06-03-PLAN.md — Source CLI commands + wire MultiStore into pick/manage/list
-  - [ ] 06-04-PLAN.md — PowerShell integration + Windows build tags for openTTY
+  - [x] 06-04-PLAN.md — PowerShell integration + Windows build tags for openTTY
 
 ## Progress
 
@@ -133,7 +133,7 @@ Note: Phases 3 and 5 only depend on Phase 1, so they could run after Phase 2 in 
 | 3. Management TUI | 5/5 | ✅ Complete | 2026-02-22 |
 | 4. Advanced Parameters & Import | 8/8 | ✅ Complete | 2026-02-24 |
 | 5. AI Integration | 3/3 | ✅ Complete | 2026-02-24 |
-| 6. Distribution & Sharing | 2/4 | 🔄 In progress | - |
+| 6. Distribution & Sharing | 3/4 | 🔄 In progress | - |
 
 ## Requirement Coverage
 
