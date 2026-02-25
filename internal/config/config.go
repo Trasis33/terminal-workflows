@@ -70,6 +70,18 @@ func WorkflowsDir() string {
 	return filepath.Join(xdg.ConfigHome, "wf", "workflows")
 }
 
+// SourcesDir returns the path to the remote sources directory.
+// Uses XDG data home (~/.local/share/wf/sources/) to keep cloned repos
+// separate from configuration.
+func SourcesDir() string {
+	return filepath.Join(xdg.DataHome, "wf", "sources")
+}
+
+// EnsureSourcesDir creates the sources directory if it doesn't exist.
+func EnsureSourcesDir() error {
+	return os.MkdirAll(SourcesDir(), 0755)
+}
+
 // ConfigDir returns the root config directory for wf.
 func ConfigDir() string {
 	return filepath.Join(xdg.ConfigHome, "wf")
