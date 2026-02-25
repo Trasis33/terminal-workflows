@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-advanced-parameters-import
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md, 04-06-SUMMARY.md]
 started: 2026-02-24T11:00:00Z
@@ -79,9 +79,16 @@ skipped: 0
   reason: "User reported: I ran 'echo hello world', but it registered 'npm run dev' which has been run previously"
   severity: major
   test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "Shells (bash/zsh) only flush history to disk on session exit. wf register reads $HISTFILE which contains only commands from prior sessions, not the current in-memory shell history."
+  artifacts:
+    - path: "internal/history/detect.go"
+      issue: "NewReader() reads $HISTFILE at construction time with no flush mechanism"
+    - path: "cmd/wf/register.go"
+      issue: "lastFromHistory() calls history.NewReader() + Last() with no pre-flush or user warning"
+  missing:
+    - "Extend shell integration scripts (zsh/bash) to write last command to a sidecar file (~/.local/share/wf/last_cmd) via precmd/PROMPT_COMMAND hook"
+    - "wf register reads sidecar file first (immune to flush timing) and falls back to $HISTFILE"
+    - "Short-term: emit a warning when running in no-arg mode on bash/zsh that history may not be flushed"
   debug_session: ""
 
 - truth: "wf import pet <file> parses a Pet TOML file with a single-string tag field and imports workflows"
@@ -89,7 +96,11 @@ skipped: 0
   reason: "User reported: Error: parsing Pet file: parsing pet TOML: toml: cannot decode TOML string into struct field importer.PetSnippet.Tag of type []string"
   severity: blocker
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
+  root_cause: "The PetSnippet.Tag struct field is correctly typed as []string (matching upstream Pet schema), but the test input file used tag = 'k8s' (bare string) instead of tag = ['k8s'] (array). The struct is correct; we should add a lenient unmarshaler to tolerate both forms since hand-edited Pet files in the wild may use bare strings."
+  artifacts:
+    - path: "internal/importer/pet.go"
+      issue: "PetSnippet.Tag is []string — correct per spec, but no tolerance for bare string input"
+  missing:
+    - "Add custom UnmarshalTOML or StringSlice type on PetSnippet to accept both string and []string for the tag field"
+    - "Add a test covering bare-string tag input to prevent regression"
   debug_session: ""
