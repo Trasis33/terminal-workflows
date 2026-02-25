@@ -50,14 +50,14 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SHEL-01**: User can install shell integration via `wf init zsh/bash/fish`
 - [x] **SHEL-02**: Shell integration adds a keybinding to invoke the quick picker
 - [x] **SHEL-03**: Selected workflow command is pasted into the user's active prompt
-- [ ] **SHEL-04**: Shell integration works with PowerShell on Windows
+- [x] **SHEL-04**: Shell integration works with PowerShell on Windows
 - [x] **SHEL-05**: Binary works standalone on macOS, Linux, and Windows
 
 ### Organization
 
 - [x] **ORGN-01**: User can assign tags to workflows
 - [x] **ORGN-02**: User can organize workflows in folders on disk
-- [ ] **ORGN-03**: User can share workflow collections via git
+- [x] **ORGN-03**: User can share workflow collections via git
 
 ### AI Features
 
@@ -137,11 +137,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SHEL-01 | Phase 2 | Complete |
 | SHEL-02 | Phase 2 | Complete |
 | SHEL-03 | Phase 2 | Complete |
-| SHEL-04 | Phase 6 | Pending |
+| SHEL-04 | Phase 6 | Complete |
 | SHEL-05 | Phase 2 | Complete |
 | ORGN-01 | Phase 1 | Complete |
 | ORGN-02 | Phase 1 | Complete |
-| ORGN-03 | Phase 6 | Pending |
+| ORGN-03 | Phase 6 | Complete |
 | AIFL-01 | Phase 5 | Complete |
 | AIFL-02 | Phase 5 | Complete |
 | AIFL-03 | Phase 5 | Complete |
@@ -155,4 +155,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-19*
-*Last updated: 2026-02-24 after Phase 5 completion*
+*Last updated: 2026-02-25 after Phase 6 completion*
