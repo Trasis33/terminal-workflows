@@ -38,11 +38,11 @@ v1.0 delivers the complete workflow manager: YAML storage with Norway Problem pr
 
 ### Active
 
-- [ ] Auto-save entered variable values as defaults in workflow config
-- [ ] Fix default value consistency at runtime/edit time
+- [ ] Preserve original values as parameter defaults when saving commands as workflows
 - [ ] Syntax highlighting in workflow list rendering
 - [ ] Auto-display folder contents in manage without extra keypress
 - [ ] Warp terminal Ctrl+G compatibility + fallback keybinding
+- [ ] Configurable keybinding via `wf init --key` flag
 - [ ] Full execute flow inside wf manage (param fill, paste to prompt)
 - [ ] Per-field Generate action for individual variables in manage
 - [ ] Fix command preview panel overscroll in manage view
@@ -51,15 +51,14 @@ v1.0 delivers the complete workflow manager: YAML storage with Norway Problem pr
 
 ## Current Milestone: v1.1 Polish & Power
 
-**Goal:** Fix variable/default reliability, improve manage UX with execute flow and navigation fixes, add list picker variable type, and resolve terminal compatibility issues.
+**Goal:** Improve manage UX with execute flow, parameter CRUD, and navigation fixes; add list picker variable type; resolve terminal compatibility issues; add syntax highlighting and smarter default handling.
 
 **Target features:**
-- Variable defaults: auto-save and consistency fixes
-- Manage UX: folder auto-display, execute flow, per-field generate, overscroll fix, parameter CRUD
-- List picker: general-purpose dynamic variable with field extraction
-- Terminal compat: Warp Ctrl+G fix + fallback keybinding
-- Display: syntax highlighting in workflow list
-- Parameter editing: full CRUD on args in manage TUI (add/remove/rename, type/default/enum)
+- Defaults: preserve original values as param defaults when saving commands
+- Manage UX: execute flow, parameter CRUD, per-field AI generate, folder auto-display, overscroll fix
+- List picker: general-purpose dynamic variable with column extraction
+- Terminal compat: Warp Ctrl+G fix + configurable keybinding
+- Display: syntax highlighting in workflow list/preview
 
 ### Out of Scope
 
@@ -113,4 +112,4 @@ Known tech debt:
 | Typed string fields for YAML | Eliminates Norway Problem without custom MarshalYAML | Good |
 
 ---
-*Last updated: 2026-02-27 after v1.1 scope revised (added parameter CRUD)*
+*Last updated: 2026-02-27 after v1.1 requirements scoped*
