@@ -1,527 +1,642 @@
-# Domain Pitfalls
+# Domain Pitfalls — v1.1 "Polish & Power"
 
 **Domain:** Go TUI Terminal Workflow Manager (`wf`)
-**Researched:** 2026-02-19
-**Overall Confidence:** HIGH (multiple authoritative sources cross-referenced)
+**Researched:** 2026-02-27
+**Milestone:** v1.1 — variable defaults, manage UX, list picker, terminal compat, parameter CRUD
+**Overall Confidence:** HIGH (based on v1.0 codebase analysis + external research)
+
+**Note:** This document covers pitfalls specific to the v1.1 feature set. The original v1.0 pitfalls document informed the initial build and remains valid for foundational concerns. This document focuses on what can go wrong when adding the new features to the existing codebase.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or major issues.
+Mistakes that cause rewrites, data loss, or major integration failures.
 
 ---
 
-### Pitfall 1: Paste-to-Prompt via TIOCSTI is Dead
+### Pitfall 1: Auto-Save Defaults via Non-Atomic `os.WriteFile` Corrupts YAML
 
-**What goes wrong:** Building a "paste command to user's shell prompt" feature using the `TIOCSTI` ioctl — the historically standard way to inject keystrokes into a terminal — silently fails on modern Linux kernels (6.2+, i.e., most distros from 2023 onward). The syscall is deprecated and disabled by default. OpenBSD killed it in 2017. Your core UX feature — select a workflow, paste it ready-to-edit into the prompt — doesn't work.
+**Feature:** Auto-save entered variable values as defaults
+**Risk level:** CRITICAL — data loss
 
-**Why it happens:** `TIOCSTI` was a security vulnerability (CVE-2023-28339) allowing privilege escalation via terminal input injection. The kernel team deprecated it, and `sysctl kernel.tiocsti_restrict = 1` is now default.
+**What happens:** The auto-save feature writes updated defaults back to workflow YAML files every time a user fills parameters. `YAMLStore.Save()` uses `os.WriteFile()` directly (yaml.go:45). If the process is killed, the terminal crashes, or `SIGKILL` arrives mid-write, the YAML file is left half-written — corrupted. With auto-save happening on every workflow execution (potentially multiple times per minute), the window for corruption multiplies compared to the current manual save flow.
 
-**Consequences:** The entire product value proposition breaks. Users select a workflow, the TUI exits... and nothing appears in their prompt. This is a showstopper.
-
-**Prevention:**
-- **Do NOT use `TIOCSTI`.** It is not a viable mechanism in 2025/2026.
-- **Primary approach: Print to stdout, use shell function wrapper.** The `wf` binary prints the command to stdout. A shell function (`wf()`) wraps the binary and uses the output:
-  ```bash
-  # ~/.zshrc / ~/.bashrc
-  wf() {
-    local cmd
-    cmd=$(command wf "$@")
-    if [ -n "$cmd" ]; then
-      print -z "$cmd"  # zsh: paste to prompt buffer
-      # OR: READLINE_LINE="$cmd" READLINE_POINT=${#cmd}  # bash
-    fi
-  }
-  ```
-- **For fish:** `commandline -r "$cmd"` in a fish function.
-- **Alternative: Clipboard + notification.** Copy to clipboard via OSC 52 escape sequence (widely supported in modern terminals), then tell the user to paste. Less elegant but universally works.
-- **Alternative: `tmux send-keys`.** If inside tmux, send keys to the pane. Only works for tmux users.
-
-**Detection:** Test on a recent Ubuntu/Fedora. If your paste mechanism doesn't work out-of-the-box, you've hit this.
-
-**Phase relevance:** Phase 1 (Core). This must be designed correctly from day one. The shell integration architecture is the foundation.
-
-**Confidence:** HIGH — kernel changelog, CVE record, multiple distro confirmations.
-
----
-
-### Pitfall 2: Bubble Tea State Explosion in Multi-View TUI
-
-**What goes wrong:** Starting with a single `Model` struct that holds all state for search view, detail view, execution view, settings, etc. The `Update()` function becomes a massive switch statement. Adding a new view requires touching every other view's logic. The `View()` function becomes a nested conditional nightmare. Testing becomes impossible.
-
-**Why it happens:** Bubble Tea's Elm Architecture is elegant for simple apps but doesn't prescribe how to handle multi-view complexity. Developers start simple (as they should) but don't refactor to a component tree soon enough. By the time the codebase is painful, the refactor is expensive.
-
-**Consequences:** 
-- `Update()` function exceeds 300+ lines with interleaved concerns
-- Impossible to test individual views in isolation
-- Every new feature risks breaking existing views via shared state mutation
-- Message routing becomes a source of subtle bugs
+**Warning signs:**
+- Zero-byte workflow files appearing after system crash
+- YAML parse errors on previously-working workflows
+- Partial content in workflow files (truncated mid-field)
 
 **Prevention:**
-- **Tree of Models pattern from day one.** Each "screen" or "panel" is its own Model with its own `Update()` and `View()`. A root model delegates.
+- **Atomic write pattern: temp file + rename.** Write to a temporary file in the same directory, then `os.Rename()` to the target path. On POSIX, rename is atomic within the same filesystem:
   ```go
-  type AppModel struct {
-      activeView  ViewType
-      searchView  SearchModel
-      detailView  DetailModel
-      executeView ExecuteModel
-  }
-  
-  func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-      switch m.activeView {
-      case ViewSearch:
-          updated, cmd := m.searchView.Update(msg)
-          m.searchView = updated.(SearchModel)
-          return m, cmd
-      // ...
+  func atomicWriteFile(path string, data []byte, perm os.FileMode) error {
+      dir := filepath.Dir(path)
+      tmp, err := os.CreateTemp(dir, ".wf-*.tmp")
+      if err != nil {
+          return err
       }
-  }
-  ```
-- **Define clear message types per view.** Don't reuse generic messages across views.
-- **Use `tea.Batch` for combining commands**, never for combining messages.
-- **Write `teatest` tests** for each sub-model independently.
-
-**Detection:** If your main `Update()` function exceeds 100 lines, refactor immediately.
-
-**Phase relevance:** Phase 1 (Core TUI scaffold). Establish the component tree pattern before building features.
-
-**Confidence:** HIGH — Bubble Tea official examples, GitHub issues, community patterns.
-
----
-
-### Pitfall 3: YAML "Norway Problem" Destroys Command Templates
-
-**What goes wrong:** A user saves a workflow command like `redis-cli CONFIG SET appendonly no`. When stored in YAML, `no` is interpreted as boolean `false`. When read back, the command becomes `redis-cli CONFIG SET appendonly false` — silently corrupted. Similarly, `yes`, `on`, `off`, `y`, `n` are all YAML boolean landmines. Octal-looking strings like port `0755` become decimal `493`.
-
-**Why it happens:** YAML 1.1 (which `go-yaml.v3` partially supports for backwards compatibility) treats many bare words as booleans or numbers. Even in YAML 1.2 mode, the behavior with unquoted values into `bool`-typed Go struct fields persists.
-
-**Consequences:** Commands silently mutate. Users run corrupted commands. Trust in the tool is destroyed. This is particularly devastating for a workflow manager because **the entire point is faithfully storing and reproducing commands.**
-
-**Prevention:**
-- **Always store command strings in YAML using explicit quoting.** Use `yaml:",flow"` or custom marshalling to force double-quoted strings:
-  ```go
-  type Workflow struct {
-      Command string `yaml:"command"`
-  }
-  ```
-  With `go-yaml.v3`, string-typed fields decode correctly. But **marshalling** may produce unquoted output that other tools misparse.
-- **Custom `MarshalYAML`** that forces double-quoting for command fields:
-  ```go
-  func (w Workflow) MarshalYAML() (interface{}, error) {
-      // Use yaml.Node to force quoted scalar style
-      node := &yaml.Node{
-          Kind:  yaml.ScalarNode,
-          Value: w.Command,
-          Style: yaml.DoubleQuotedStyle,
-      }
-      return node, nil
-  }
-  ```
-- **Never use `interface{}` for command fields.** Always use typed `string` fields so the decoder treats values as strings.
-- **Add round-trip tests:** Marshal a command, unmarshal it, assert byte-for-byte equality. Test with: `yes`, `no`, `on`, `off`, `true`, `false`, `0755`, `1e10`, `null`, `~`, `NO` (Norway!).
-- **Consider using `yaml.Node` API** for full control over serialization style.
-
-**Detection:** Write a test that round-trips `command: "redis-cli CONFIG SET appendonly no"`. If it comes back as `false`, you've been bitten.
-
-**Phase relevance:** Phase 1 (YAML storage). Must be correct from the first persisted workflow.
-
-**Confidence:** HIGH — go-yaml.v3 docs, YAML spec, Norway Problem is well-documented.
-
----
-
-### Pitfall 4: Shell Function Wrapper Varies Per Shell (zsh/bash/fish)
-
-**What goes wrong:** Building the paste-to-prompt shell wrapper for one shell (usually zsh or bash) and assuming it works everywhere. Each shell has fundamentally different mechanisms:
-- **zsh:** `print -z "command"` places text in the line editor buffer
-- **bash:** `READLINE_LINE="command"; READLINE_POINT=${#command}` (only works in `bind -x` or readline context, not in a regular function without tricks)
-- **fish:** `commandline -r "command"` via a fish function
-- **POSIX sh:** No mechanism at all
-- **Nushell, PowerShell, etc.:** Each completely different
-
-**Why it happens:** There is no universal "paste to prompt" API across shells. Each shell's line editor is a separate implementation.
-
-**Consequences:** Works on your machine (zsh), fails for half your users (bash), confuses fish users, and is impossible for exotic shells.
-
-**Prevention:**
-- **Provide shell-specific wrapper functions** that users source. Ship them in the binary (embed via `go:embed`) and provide an `wf init <shell>` command that prints the correct function:
-  ```
-  eval "$(wf init zsh)"   # in ~/.zshrc
-  eval "$(wf init bash)"  # in ~/.bashrc
-  wf init fish | source   # in ~/.config/fish/config.fish
-  ```
-- **For bash specifically:** The readline approach is tricky. A more reliable bash pattern uses `bind -x '"\C-x\C-w": wf_select'` with a helper function, or falls back to clipboard.
-- **Always provide clipboard fallback.** If shell integration isn't set up, copy to clipboard and print instructions.
-- **Detect the parent shell** at runtime via `$SHELL` or `/proc/$PPID/comm` to give helpful error messages.
-- **Test in CI with all three major shells.** Docker containers with zsh, bash, and fish.
-
-**Detection:** Run `wf` from bash on a fresh machine. If nothing appears in the prompt, you haven't handled this.
-
-**Phase relevance:** Phase 1-2. Core shell wrapper for zsh in Phase 1, bash/fish in Phase 2.
-
-**Confidence:** HIGH — shell documentation, fzf/zoxide/atuin all solve this same problem with similar approaches.
-
----
-
-### Pitfall 5: Terminal State Corruption on Panic or Forced Exit
-
-**What goes wrong:** Bubble Tea puts the terminal into raw mode (no echo, no line buffering, alternate screen buffer). If the program panics, is killed with SIGKILL, or crashes, the terminal is left in raw mode. The user's terminal becomes unusable — no echo, no cursor, can't type. They have to blindly type `reset` and hit enter.
-
-**Why it happens:** Go's `recover()` in a deferred function can catch panics, but signal handling is imperfect. `SIGKILL` cannot be caught. Bubble Tea's cleanup runs on `tea.Quit` but not on unexpected termination paths.
-
-**Consequences:** Users lose trust immediately. A single crash permanently associates your tool with "that thing that broke my terminal." Power users will avoid it.
-
-**Prevention:**
-- **Use `defer` to restore terminal state** at the outermost level:
-  ```go
-  func main() {
-      // Capture original terminal state BEFORE tea.NewProgram
-      oldState, _ := term.GetState(int(os.Stdin.Fd()))
-      defer term.Restore(int(os.Stdin.Fd()), oldState)
+      tmpPath := tmp.Name()
+      defer os.Remove(tmpPath) // cleanup on error path
       
-      p := tea.NewProgram(model, tea.WithAltScreen())
-      if _, err := p.Run(); err != nil {
-          fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-          os.Exit(1)
+      if _, err := tmp.Write(data); err != nil {
+          tmp.Close()
+          return err
       }
+      if err := tmp.Sync(); err != nil { // fsync before rename
+          tmp.Close()
+          return err
+      }
+      if err := tmp.Close(); err != nil {
+          return err
+      }
+      return os.Rename(tmpPath, path)
   }
   ```
-- **Handle signals explicitly:** Catch `SIGINT`, `SIGTERM`, `SIGHUP` and ensure terminal restore runs.
-- **Use `tea.WithAltScreen()` as a ProgramOption,** not `tea.EnterAltScreen` in Init(). The option approach has better cleanup behavior.
-- **Add a recovery wrapper:**
+- **Debounce auto-saves.** Don't write on every parameter fill. Accumulate changes and write after a 2-second idle period, or write once when the picker exits after successful parameter fill. This reduces write frequency by 10-50x.
+- **Only update the `default` field, not the entire workflow.** Parse the existing YAML, update only the `args[N].default` value, re-marshal. This minimizes the blast radius of any formatting changes.
+
+**Detection:** Kill the `wf` process with `kill -9` during parameter fill. Check if the workflow file is corrupted.
+
+**Phase:** Must be in the first plan that touches auto-save defaults.
+
+**Confidence:** HIGH — `os.WriteFile` non-atomicity is well-documented; current code at yaml.go:45 confirmed.
+
+---
+
+### Pitfall 2: Auto-Save Defaults Trigger Full YAML Re-Marshal, Destroying Formatting
+
+**Feature:** Auto-save entered variable values as defaults
+**Risk level:** CRITICAL — user trust
+
+**What happens:** The auto-save flow reads a workflow, modifies the `Default` field on one `Arg`, then calls `yaml.Marshal()` + `Save()`. `goccy/go-yaml` (like all YAML libraries) re-serializes the entire document. This means: comments are stripped, key ordering may change, quoting style may change, blank lines are removed. Users who hand-edit their YAML files (a core promise of the human-readable storage format) see their carefully formatted files mangled by a simple parameter fill.
+
+**Warning signs:**
+- Git diffs showing massive reformatting of unchanged fields after running a workflow
+- Users reporting "wf is rewriting my files"
+- Comment loss in workflow YAML
+
+**Prevention:**
+- **Surgical field update instead of full re-marshal.** For auto-save, parse the YAML into `yaml.Node` (AST), find the specific `args[N].default` node, update its value, and write the AST back. This preserves comments, ordering, and formatting:
   ```go
-  defer func() {
-      if r := recover(); r != nil {
-          term.Restore(int(os.Stdin.Fd()), oldState)
-          fmt.Fprintf(os.Stderr, "panic: %v\n%s\n", r, debug.Stack())
-          os.Exit(1)
-      }
-  }()
+  // Pseudocode for surgical default update
+  func updateArgDefault(filePath string, argName string, newDefault string) error {
+      data, _ := os.ReadFile(filePath)
+      var node yaml.Node
+      yaml.Unmarshal(data, &node)
+      // Walk AST to find args -> [name matches] -> default
+      // Update only that scalar node's Value
+      // Re-marshal from AST (preserves formatting)
+  }
   ```
-- **Test with `kill -9 <pid>`** to verify the terminal is recoverable.
+- **Note:** `goccy/go-yaml` does support node-level manipulation. Verify with `goccy/go-yaml`'s `ast` package (it has `ast.File`, `ast.MappingNode`, etc.) whether surgical updates are possible without full re-serialization.
+- **Fallback if AST approach is too complex:** Write a separate `.defaults.yaml` file per workflow (or a single `defaults.yaml` in the config dir) that only stores `{workflow_name: {arg_name: last_value}}`. This completely avoids touching the workflow YAML.
+- **Test:** Round-trip a hand-formatted YAML file (with comments, custom ordering, blank lines) through the auto-save flow. Assert the file is byte-for-byte identical except for the changed default.
 
-**Detection:** Add a `panic("test")` to your Update function. Run the app. If you can't type after, you haven't handled this.
+**Detection:** Create a workflow YAML with inline comments and custom formatting. Run the workflow, fill params, check if the YAML file formatting changed.
 
-**Phase relevance:** Phase 1 (Core TUI setup). This must be in the initial `main()` scaffold.
+**Phase:** Must be resolved before implementing auto-save. Consider the separate defaults file approach if AST manipulation proves fragile.
 
-**Confidence:** HIGH — Bubble Tea GitHub issues, terminal programming fundamentals.
+**Confidence:** HIGH — YAML re-marshal behavior is well-known; `goccy/go-yaml` AST support verified via repository.
+
+---
+
+### Pitfall 3: Parameter CRUD in huh Forms Requires Dynamic Field Rebuilding That huh Doesn't Support
+
+**Feature:** Full CRUD on parameters in wf manage (add/remove/rename args)
+**Risk level:** CRITICAL — architectural challenge
+
+**What happens:** The current `FormModel` builds a `huh.Form` once at transition time (`buildForm()` in form.go:101). The form has a fixed set of fields: name, description, command, tags, folder. For parameter CRUD, you need to dynamically add/remove argument fields (name, type, default, options, description per arg). But `huh.Form` does not support adding or removing fields after construction. Calling `huh.NewForm()` with new groups/fields resets all form state — focus, cursor position, partially-entered values.
+
+**Warning signs:**
+- Form state (cursor position, partial input) lost when adding/removing an arg
+- Flickering or visual reset when the form rebuilds
+- Complex state management trying to preserve partial form state across rebuilds
+
+**Prevention:**
+- **Don't use huh for parameter CRUD.** Build a custom parameter editor as a separate view state (`viewEditParams`), not an extension of the existing huh form. Use raw `textinput.Model` and `list` components from Bubbles for the parameter list. This gives full control over add/remove/reorder without fighting huh's static form model.
+- **Alternatively: Two-step form flow.** Step 1: Edit workflow metadata (name, command, tags — existing huh form). Step 2: Switch to a custom parameter editor view for arg CRUD. The `viewEdit` state becomes a mini-flow with its own sub-states.
+- **The `formValues` pointer pattern must extend.** If args are edited, they need their own shared pointer struct (like `formValues` but for `[]Arg`). Since Bubble Tea copies models on every Update, the arg list must be heap-allocated:
+  ```go
+  type paramEditorValues struct {
+      args *[]store.Arg // pointer — survives value copies
+  }
+  ```
+- **Preserve the existing form for basic fields.** Don't try to cram arg CRUD into the existing 5-field form. Keep it clean.
+
+**Detection:** Try adding a 6th field group to the existing huh form dynamically mid-edit. If state is lost, you've confirmed this pitfall.
+
+**Phase:** Must be resolved in the plan for parameter CRUD. Likely its own phase/plan.
+
+**Confidence:** HIGH — huh form construction is static (confirmed in form.go:155-163); no `AddField()` API exists.
+
+---
+
+### Pitfall 4: List Picker Variable Type Creates Unbounded Shell Execution Surface
+
+**Feature:** List picker dynamic variable type (shell command → select → field extraction)
+**Risk level:** CRITICAL — reliability + security boundary
+
+**What happens:** The list picker variable type runs a shell command, presents output as a selectable list, then extracts a specific field from the selected line. This extends the existing `executeDynamic()` (paramfill.go:99) pattern but adds field extraction. The risks compound:
+1. **Shell command hangs forever** if the 5-second timeout is too short for slow commands (e.g., `aws ec2 describe-instances`)
+2. **Output is enormous** for commands producing thousands of lines (e.g., `find / -name "*.go"`)
+3. **Field extraction is fragile** — users will specify field indices or delimiters that don't match output format, producing empty/wrong values silently
+4. **Command fails differently across environments** — a `kubectl` command works on dev but fails on CI with no cluster context
+
+**Warning signs:**
+- TUI freezes for >5 seconds during parameter fill
+- OOM when command output is very large
+- Empty parameter values after field extraction fails silently
+- Works on developer's machine, fails on team members' machines
+
+**Prevention:**
+- **Configurable timeout with sensible default.** Default to 10 seconds (not 5 — real-world commands like `docker ps` or `kubectl get pods` can take 3-5 seconds). Allow per-arg override:
+  ```yaml
+  args:
+    - name: pod
+      type: list
+      dynamic_cmd: "kubectl get pods -o name"
+      timeout: 30  # seconds
+  ```
+- **Output line limit.** Cap at 1000 lines. If the command produces more, truncate and show "(1000 of N lines — refine your command)" at the bottom of the picker. Don't try to load 50,000 lines into memory.
+- **Explicit field extraction syntax.** Don't invent a new DSL. Use `awk`-compatible field references that users already know:
+  ```yaml
+  args:
+    - name: container_id
+      type: list
+      dynamic_cmd: "docker ps"
+      field: 1        # first whitespace-delimited field (like awk $1)
+      # OR
+      field: "0:12"   # character range (columns 0-12)
+  ```
+- **Show raw output if field extraction fails.** Don't silently produce empty values. If `field: 3` but the selected line has only 2 fields, use the entire line as the value and show a warning.
+- **Preview the extracted value.** In the picker list, show both the full line and the extracted field value (highlighted) so users can verify before selecting.
+- **Test with: empty output, single line, 1000+ lines, lines with varying field counts, unicode output, ANSI color codes in output.** Strip ANSI codes before field extraction.
+
+**Detection:** Create a list picker with `dynamic_cmd: "find / -type f"` and observe behavior.
+
+**Phase:** Core design decision for list picker implementation.
+
+**Confidence:** HIGH — extends existing `executeDynamic()` pattern (paramfill.go:99); issues are architectural not speculative.
 
 ---
 
 ## Moderate Pitfalls
 
-Mistakes that cause delays or technical debt.
+Mistakes that cause delays, bugs, or tech debt.
 
 ---
 
-### Pitfall 6: Command Injection via Template Interpolation
+### Pitfall 5: Execute Flow in Manage TUI Conflicts with Alt-Screen Mode
 
-**What goes wrong:** The workflow manager supports parameterized commands like `ssh {{.host}} -p {{.port}}`. A user provides `host` as `; rm -rf /` or `` `malicious` ``. If the tool naively interpolates and passes to `sh -c`, arbitrary code execution occurs.
+**Feature:** Full execute flow inside wf manage (param fill, paste to prompt)
+**Risk level:** MODERATE — architectural mismatch
 
-**Why it happens:** Using `text/template` to build a command string, then passing it to `exec.Command("sh", "-c", renderedString)` is the natural but dangerous approach.
+**What happens:** The manage TUI runs with `tea.WithAltScreen()` (manage.go). The picker's paste-to-prompt mechanism prints the rendered command to stdout, which the shell wrapper captures. But in alt-screen mode, stdout goes to the alternate buffer — the shell wrapper never sees the output. If you exit alt-screen to print the command, there's a visible flash as the terminal switches buffers. If you try to write to `/dev/tty` directly (as the picker does), the shell wrapper can't capture it either because it only captures stdout.
+
+**Warning signs:**
+- Command "executed" from manage TUI but nothing appears in the shell prompt
+- Visual flash/flicker when switching out of alt-screen
+- Users confused about where the command went
 
 **Prevention:**
-- **Never use `sh -c` with interpolated strings for execution.** Use `exec.Command` with argument slices:
+- **Option A: Clipboard-first for manage execute.** From the manage TUI, copy the rendered command to clipboard (using `atotto/clipboard`, already a dependency) and show a toast-style notification "Copied to clipboard — paste with Ctrl+V". Don't try to match the picker's paste-to-prompt UX.
+- **Option B: Exit manage, then print.** Set a result field on the Model, call `tea.Quit`, and after `p.Run()` returns, print the result to stdout (same pattern as the picker). The manage TUI closes, the command is pasted to the prompt. But this means the user leaves the manage TUI — acceptable UX trade-off?
+- **Option C: Hybrid.** Offer both clipboard (stay in manage) and "run" (exit manage + paste to prompt). Let the user choose via keybinding.
+- **Do NOT try to dynamically switch between alt-screen and inline mode** within the same `tea.Program`. This causes rendering chaos (per v1.0 pitfall #8).
+
+**Detection:** From manage TUI, trigger execute flow and check if the command appears in the shell prompt.
+
+**Phase:** Execute flow design.
+
+**Confidence:** HIGH — alt-screen behavior is well-understood; picker's `/dev/tty` approach confirmed in codebase.
+
+---
+
+### Pitfall 6: Syntax Highlighting Adds Per-Frame Render Cost That Scales with Visible Workflows
+
+**Feature:** Syntax highlighting in workflow list rendering
+**Risk level:** MODERATE — performance
+
+**What happens:** The browse view re-renders the visible workflow list on every `View()` call (browse.go:380-440). Adding syntax highlighting means applying ANSI color sequences to each command preview. If syntax highlighting is done naively (e.g., regex matching for shell keywords on every render), the cost scales linearly with visible items × command length. With 20 visible workflows of average 100-char commands, that's 2000 characters of regex matching per frame.
+
+**Warning signs:**
+- Perceptible lag when scrolling through workflow list
+- CPU spikes during rapid scrolling (j/k held down)
+- Frame drops visible as "tearing" or delayed cursor movement
+
+**Prevention:**
+- **Cache highlighted output.** Compute syntax highlighting once when a workflow enters the visible window, cache the styled string, invalidate only when the workflow list changes (not on every View call):
   ```go
-  // BAD: exec.Command("sh", "-c", fmt.Sprintf("ssh %s -p %s", host, port))
-  // GOOD: exec.Command("ssh", host, "-p", port)
-  ```
-- **For paste-to-prompt (display-only):** The command is printed for the user to review before execution. This is inherently safer but still needs escaping for display. Use `shellescape.Quote()` from `github.com/alessio/shellescape`.
-- **If you MUST support complex pipeline commands** (pipes, redirects), clearly separate "template resolution" from "command display." The resolved command is shown to the user who decides whether to execute.
-- **Validate parameter values** against an allowlist of characters. Reject values containing shell metacharacters (`;`, `|`, `&`, `` ` ``, `$()`, etc.) unless the user explicitly opts in.
-
-**Phase relevance:** Phase 2 (Parameterized workflows). Design the parameter interpolation system with security from the start.
-
-**Confidence:** HIGH — OWASP command injection patterns, `os/exec` Go docs.
-
----
-
-### Pitfall 7: XDG Config Path Surprise on macOS
-
-**What goes wrong:** Using Go's `os.UserConfigDir()` returns `~/Library/Application Support` on macOS. CLI tool users on macOS universally expect `~/.config/wf/`. Your config file ends up in a deeply nested Finder-oriented path that CLI users never look in.
-
-**Why it happens:** `os.UserConfigDir()` follows Apple's conventions, which are correct for GUI apps but wrong for CLI tools. It's "technically correct, but wrong in practice."
-
-**Consequences:** Users can't find their config. They file issues. They create `~/.config/wf/` manually and wonder why it's not picked up. Other CLI tools (fzf, starship, lazygit) all use `~/.config/` on macOS, setting the user expectation.
-
-**Prevention:**
-- **Use `github.com/adrg/xdg`** which provides cross-platform XDG compliance:
-  - Linux: `~/.config/wf/`
-  - macOS: `~/.config/wf/` (XDG-aware, not Apple convention)
-  - Windows: `%APPDATA%/wf/`
-- **OR manually implement:** Check `$XDG_CONFIG_HOME` first, fall back to `~/.config/` on Unix-like systems, `%APPDATA%` on Windows.
-- **Never hardcode paths.** Always resolve at runtime.
-- **Create the directory if it doesn't exist** with `os.MkdirAll(configDir, 0755)`.
-- **Document the config location** in `--help` output and `wf config path` subcommand.
-
-**Phase relevance:** Phase 1 (Config storage). Decide this before writing any config-related code.
-
-**Confidence:** HIGH — `adrg/xdg` docs, fzf/lazygit/starship conventions, os.UserConfigDir() Go docs.
-
----
-
-### Pitfall 8: Bubble Tea Alternate Screen + Hybrid Mode Confusion
-
-**What goes wrong:** The project wants a "hybrid interface" — sometimes inline (like fzf's `--height` mode where results appear below the prompt), sometimes fullscreen. Mixing `tea.WithAltScreen()` and inline mode in the same program causes rendering chaos: leftover content from alt screen bleeding into inline mode, scroll position confusion, and visual artifacts on rapid transitions.
-
-**Why it happens:** Alternate screen and inline modes use fundamentally different terminal buffer mechanisms. The alternate screen is a separate buffer; inline mode renders in the main buffer. Transitioning between them mid-program is fragile across terminal emulators, especially macOS Terminal.app which fakes alt screen with blank lines.
-
-**Consequences:** Visual glitches, leftover artifacts, inconsistent behavior across terminals. Users on iTerm2 see different behavior than users on Alacritty or Terminal.app.
-
-**Prevention:**
-- **Pick one mode per invocation.** Don't dynamically switch between alt screen and inline. Instead:
-  - `wf` (no args / interactive search) → inline mode
-  - `wf edit <name>` → could use alt screen if needed for multi-field editing
-- **For inline/height mode:** Use `tea.WithHeight(n)` or render without `tea.WithAltScreen()`. The program runs inline in the terminal.
-- **Avoid `tea.EnterAltScreen` / `tea.ExitAltScreen` as runtime commands.** Prefer `tea.WithAltScreen()` as a program option set once at startup.
-- **Test on at least:** iTerm2, Terminal.app, Alacritty, and one Linux terminal (GNOME Terminal or Kitty).
-- **Accept imperfection:** Terminal rendering will never be pixel-perfect across all emulators. Design for graceful degradation.
-
-**Phase relevance:** Phase 1 (TUI mode decision). This architectural decision must be made upfront.
-
-**Confidence:** HIGH — Bubble Tea GitHub issues on alt screen, terminal emulator documentation.
-
----
-
-### Pitfall 9: Slow `Update()` / `View()` Freezes the Entire UI
-
-**What goes wrong:** Performing file I/O, YAML parsing, fuzzy search computation, or API calls inside `Update()` or `View()`. Since Bubble Tea runs a single-threaded event loop, any blocking operation in these functions freezes the entire UI. The cursor stops blinking, keypresses queue up, the app appears hung.
-
-**Why it happens:** Coming from web/mobile development where async is natural, developers forget that Bubble Tea's event loop is synchronous. The temptation to "just do a quick file read" in Update is strong.
-
-**Consequences:** UI freezes for 50-500ms per operation. Users think the app crashed. Accumulated keypresses replay chaotically when the blocking operation completes.
-
-**Prevention:**
-- **All I/O goes through `tea.Cmd`:**
-  ```go
-  func loadWorkflows() tea.Msg {
-      data, err := os.ReadFile(configPath)
-      if err != nil {
-          return errMsg{err}
-      }
-      var workflows []Workflow
-      yaml.Unmarshal(data, &workflows)
-      return workflowsLoadedMsg{workflows}
+  type highlightCache struct {
+      mu    sync.Mutex
+      cache map[string]string // command -> highlighted string
   }
-  
-  // In Update:
-  case startLoadMsg:
-      return m, loadWorkflows  // Returns a Cmd, doesn't block
   ```
-- **Fuzzy search: Pre-compute on data load, debounce on keystroke.** Don't re-score all items on every keypress. Use a 50ms debounce timer.
-- **For AI integration:** Always use `tea.Cmd` with HTTP client timeout. Show a spinner while waiting.
-- **Profile with `pprof`** if the UI feels sluggish. Look for anything >16ms in Update/View.
+- **Use a lightweight highlighter, not a full parser.** Don't pull in a tree-sitter binding or full lexer. Shell syntax highlighting for display purposes needs only: keywords (`if`, `for`, `do`, `done`), strings (single/double quoted), variables (`$VAR`, `${VAR}`), comments (`#`), pipes/redirects (`|`, `>`, `>>`, `<`), and commands (first word). A ~50-line regex-based highlighter is sufficient.
+- **Limit highlighting to the preview pane, not the list.** The workflow list shows names + truncated descriptions (browse.go:393-431). Only the preview pane (browse.go:443-473) shows the full command. Highlight only there — it's a single command, not 20.
+- **Benchmark:** Profile View() with and without highlighting. If the delta exceeds 2ms, the cache is mandatory.
 
-**Phase relevance:** Phase 1 (Core architecture). Establish the Cmd pattern from the very first I/O operation.
+**Detection:** Hold `j` key for 3 seconds with 50+ workflows. If scrolling is noticeably slower with highlighting enabled, optimize.
 
-**Confidence:** HIGH — Bubble Tea docs explicitly warn about this.
+**Phase:** Syntax highlighting implementation.
+
+**Confidence:** MEDIUM — performance impact depends on implementation. Benchmarking needed.
 
 ---
 
-### Pitfall 10: Argument Parsing with Nested Quotes and Pipes in Stored Commands
+### Pitfall 7: Warp Terminal Compatibility Requires Multiple Workarounds
 
-**What goes wrong:** A user saves a command like:
-```
-docker exec -it mydb psql -c "SELECT * FROM users WHERE name = 'O''Brien'"
-```
-or:
-```
-cat file.txt | grep "pattern" | awk '{print $2}' > output.txt
-```
+**Feature:** Warp terminal Ctrl+G compatibility + fallback keybinding
+**Risk level:** MODERATE — terminal-specific
 
-When storing these in YAML, reading them back, and either displaying or executing them, the quoting gets mangled. Single quotes inside double quotes, escaped quotes, pipes, redirects, backticks, `$()` substitutions — each is a parsing minefield.
+**What happens:** Warp terminal (as of Feb 2026) has multiple TUI compatibility issues:
+1. **Ctrl+G keybinding doesn't trigger** in Warp's input model — Warp intercepts certain key combinations before they reach the shell.
+2. **Kitty keyboard protocol bugs** — Warp's Feb 2026 update introduced `@` rendering problems with TUIs that use the Kitty keyboard protocol (which Bubble Tea v1 does NOT use, but v2 might).
+3. **Non-English keyboard layouts** break shortcuts differently in Warp vs standard terminals.
+4. **Warp's "blocks" model** wraps command output differently, which can affect inline picker rendering.
 
-**Why it happens:** There are multiple levels of escaping: YAML encoding, Go string representation, shell interpretation. Each layer has its own escaping rules. A command passes through all three.
-
-**Consequences:** Commands that worked when the user typed them don't work when retrieved from `wf`. Users lose trust and stop saving complex commands — exactly the ones they most need to save.
+**Warning signs:**
+- Keybinding doesn't trigger `wf` in Warp but works in iTerm2/Terminal.app
+- Visual artifacts in Warp-specific output rendering
+- User reports: "works everywhere except Warp"
 
 **Prevention:**
-- **Store commands as opaque strings.** Don't try to parse, tokenize, or understand the command structure. It's a string in, string out.
-- **Use YAML double-quoted style with proper escaping:**
-  ```yaml
-  command: "docker exec -it mydb psql -c \"SELECT * FROM users WHERE name = 'O''Brien'\""
+- **Provide a configurable fallback keybinding.** Don't hardcode Ctrl+G. Let users set their own binding in the shell init script:
+  ```bash
+  # In wf init zsh output:
+  WF_KEYBIND="${WF_KEYBIND:-\\C-g}"  # Default Ctrl+G, user can override
+  bindkey "$WF_KEYBIND" _wf_widget
   ```
-- **Use `yaml.Node` with `DoubleQuotedStyle`** for marshalling to avoid ambiguity.
-- **For the paste-to-prompt path:** Print the raw string exactly. Don't re-escape. The shell function wrapper handles it.
-- **For direct execution:** If the tool offers "run now," use `exec.Command("sh", "-c", rawCommand)` — the user already wrote valid shell. Don't try to parse it into `exec.Command` arg slices.
-- **Comprehensive round-trip test suite** with these cases:
-  - Nested quotes: `echo "it's a \"test\""`
-  - Pipes: `cat foo | grep bar | wc -l`
-  - Redirects: `cmd > file 2>&1`
-  - Subshells: `echo $(date)`
-  - Backticks: `` echo `whoami` ``
-  - Single quotes with special chars: `echo '$HOME is not expanded'`
-  - Heredocs: `cat <<EOF ...`
+- **Document Warp-specific instructions.** Create a "Warp Terminal" section in docs with the specific keybinding that works (`Ctrl+Shift+G` or a custom sequence).
+- **Test in Warp explicitly.** Add Warp to the test matrix. The `/dev/tty` approach for picker output may need special handling in Warp's environment.
+- **Consider `TERM_PROGRAM` detection.** The env var `TERM_PROGRAM=WarpTerminal` identifies Warp. Use it to auto-select a compatible keybinding or show a setup hint on first run.
+- **Don't try to "fix" Warp.** Warp is a moving target with its own keyboard model. Provide workarounds, not hacks.
 
-**Phase relevance:** Phase 1 (YAML storage) + Phase 2 (Parameterized workflows).
+**Detection:** Install `wf` in Warp terminal. Try Ctrl+G. If nothing happens, you need the fallback.
 
-**Confidence:** HIGH — shell escaping is a well-documented minefield, Go `os/exec` docs.
+**Phase:** Terminal compatibility plan.
+
+**Confidence:** MEDIUM — Warp behavior is based on user reports and search results, not official Warp documentation (which is limited for TUI compatibility).
 
 ---
 
-### Pitfall 11: Fuzzy Search Gets Slow with Thousands of Workflows
+### Pitfall 8: Preview Panel Overscroll Causes Cursor to Disappear Below Visible Area
 
-**What goes wrong:** For small workflow libraries (10-100 items), any fuzzy search algorithm is fast enough. But power users accumulate 500-2000+ workflows. Naive fuzzy matching (scoring every item on every keystroke) becomes visibly laggy, especially if the scoring algorithm is O(n*m) per item (where m = query length, n = candidate length).
+**Feature:** Fix command preview panel overscroll in manage view
+**Risk level:** MODERATE — UX bug
 
-**Why it happens:** Fuzzy search is inherently more expensive than exact matching. Without debouncing, every keypress triggers a full re-score. Without indexing or pruning, all items are scored even when most are obviously non-matching.
+**What happens:** The browse view's preview pane (browse.go:363-371) uses a fixed height of 6 lines (`previewHeight()` returns 6). But commands can be much longer than 4 content lines. Currently the preview just truncates — but the actual bug being fixed likely involves the scroll offset calculation in `ensureCursorVisible()` (browse.go:306-314). The `listHeight()` calculation (browse.go:86-95) subtracts preview height and search height, but doesn't account for edge cases:
+1. When searching is active, `listHeight` shrinks by 2, but `scrollOff` isn't reclamped
+2. When the terminal is resized smaller, `scrollOff` can exceed the new visible area
+3. The `cursor` can be valid but `scrollOff` can place it off-screen
+
+**Warning signs:**
+- Pressing `j`/`k` with no visible cursor movement (cursor is below the visible area)
+- Scroll position jumps when toggling search on/off
+- Different behavior at different terminal heights
 
 **Prevention:**
-- **Use a proven fuzzy library.** `github.com/sahilm/fuzzy` is Go-native and performs well for in-memory collections. For fzf-like behavior, `github.com/junegunn/fzf/src/algo` can be used as a library (check license).
-- **Debounce search input.** Don't search on every keypress. Wait 30-50ms after the last keystroke before triggering search:
+- **Clamp `scrollOff` in `listHeight()` changes.** Whenever `listHeight()` changes (search toggle, resize), immediately re-run `ensureCursorVisible()`:
   ```go
-  case key.Matches(msg, searchKeys):
-      m.query += msg.String()
-      return m, tea.Tick(50*time.Millisecond, func(t time.Time) tea.Msg {
-          return doSearchMsg{query: m.query}
+  // After any operation that changes listHeight:
+  b.ensureCursorVisible()
+  ```
+- **Add bounds checking in `renderList`.** Before rendering, verify:
+  ```go
+  if b.scrollOff < 0 {
+      b.scrollOff = 0
+  }
+  maxScroll := len(b.filtered) - b.listHeight()
+  if maxScroll < 0 {
+      maxScroll = 0
+  }
+  if b.scrollOff > maxScroll {
+      b.scrollOff = maxScroll
+  }
+  ```
+- **For the preview pane itself:** If the command is longer than 4 lines, either truncate with "…" or make the preview scrollable using `viewport.Model` from Bubbles. A scrollable preview is more complex but gives better UX for long commands.
+- **Test at minimum terminal height.** Set terminal to 15 rows. Browse 20 workflows. Toggle search. Resize to 10 rows. Verify cursor is always visible.
+
+**Detection:** Open manage with 20+ workflows in a 24-row terminal. Toggle search on/off while cursor is near the bottom of the list.
+
+**Phase:** Overscroll fix plan.
+
+**Confidence:** HIGH — code paths confirmed in browse.go; `scrollOff` is never reclamped on `listHeight` changes.
+
+---
+
+### Pitfall 9: Folder Auto-Display Breaks "Sidebar as Filter" Mental Model
+
+**Feature:** Auto-display folder contents in manage without extra keypress
+**Risk level:** MODERATE — UX design
+
+**What happens:** Currently, the sidebar requires pressing Enter on a folder to filter the workflow list (sidebar.go:103-106). The request is to auto-display folder contents when the folder is highlighted (cursor moves = immediate filter). But this changes the interaction model: the sidebar becomes a "live filter" instead of a "select then apply" filter. This creates problems:
+1. **Rapid cursor movement causes filter churn.** Holding `j` to scroll through 10 folders triggers 10 filter-apply cycles. If `applyFilter()` is slow (fuzzy search on large lists), the UI stutters.
+2. **Tag mode behavior inconsistency.** If folders auto-filter on cursor move, should tags also auto-filter? Users expect consistent behavior between the two modes.
+3. **Loss of "browse sidebar without changing the list" behavior.** Currently users can browse the folder tree to understand structure without affecting the main list. Auto-display removes this ability.
+
+**Warning signs:**
+- Users complain the workflow list "jumps around" while browsing folders
+- Performance issues with rapid folder switching
+- Inconsistent behavior between folder and tag sidebar modes
+
+**Prevention:**
+- **Debounce the auto-filter.** Don't apply the filter on every cursor move. Wait 150-200ms after the last cursor movement before applying:
+  ```go
+  case "up", "k", "down", "j":
+      s.moveCursor(delta)
+      // Cancel previous debounce, start new one
+      return s, tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
+          return sidebarAutoFilterMsg{filterType: ft, filterValue: fv}
       })
   ```
-- **Score incrementally.** If the user adds a character to the query, only re-score items that matched the previous prefix (prune the candidate set).
-- **Pre-build an index** on app load. Tag-based filtering before fuzzy matching reduces the candidate set.
-- **Benchmark with 2000 items.** If search latency exceeds 16ms (one frame), optimize.
+- **Apply consistently to both folders and tags.** If folders auto-filter, tags must too.
+- **Add a visual indicator** that shows "filtering by: docker/" in the list header so users understand why the list changed.
+- **Keep Enter behavior.** Enter should still work as an explicit "lock this filter" action, distinguishing between "browsing sidebar" (auto-filter, tentative) and "committed filter" (Enter, sticky).
 
-**Phase relevance:** Phase 2-3. Works fine in Phase 1 with <100 items. Needs optimization by Phase 3 if used heavily.
+**Detection:** Navigate up and down through 10+ folders quickly. Check for visual stuttering or perceived lag in list updates.
 
-**Confidence:** MEDIUM — performance characteristics depend on implementation. Benchmarking needed.
+**Phase:** Folder auto-display plan.
+
+**Confidence:** MEDIUM — UX design concern, not a hard technical limitation. Debounce approach is straightforward.
 
 ---
 
-### Pitfall 12: GitHub Copilot SDK is Technical Preview — Not Production-Ready
+### Pitfall 10: Per-Field AI Generate in Manage Creates N+1 API Call Pattern
 
-**What goes wrong:** Planning the AI workflow generation feature around the GitHub Copilot CLI SDK (`github.com/github/copilot-cli-sdk-go`), which entered technical preview in January 2026. Building core features dependent on it, then discovering breaking API changes, missing features, or access restrictions.
+**Feature:** Per-field Generate action for individual variables in manage
+**Risk level:** MODERATE — UX + cost
 
-**Why it happens:** Technical preview means: API may change, features may be removed, production use is not recommended. The SDK requires an active Copilot subscription, limiting the potential user base.
+**What happens:** The current AI autofill sends one request to fill all fields (name, description, tags, args) simultaneously. Per-field generate means: user focuses a specific arg, presses a key, and AI generates a value for just that field. This creates an N+1 API pattern — editing 5 args generates 5 separate API calls. Each call to Copilot SDK has latency (500ms-2s) and rate limits. Five sequential calls = 2.5-10 seconds of waiting for a single workflow edit.
 
-**Consequences:** AI features break on SDK updates. Users without Copilot subscriptions can't use the feature. The feature becomes a maintenance burden if the SDK is abandoned.
+**Warning signs:**
+- User waits 5+ seconds to fill all parameters individually
+- Rate limiting errors from Copilot SDK during rapid per-field generation
+- Inconsistent AI output across fields (each call has different context)
 
 **Prevention:**
-- **Design AI features behind a clean interface.** Abstract the AI provider:
+- **Batch suggestion with field focus.** Instead of one API call per field, send the full workflow context and ask for suggestions for ALL unfilled fields. Cache the result. When the user triggers "generate" on field N, pull from the cached batch result:
   ```go
-  type WorkflowGenerator interface {
-      Generate(description string) ([]Workflow, error)
+  type aiSuggestionCache struct {
+      workflowCmd string
+      suggestions map[string]string // arg_name -> suggested_value
+      timestamp   time.Time
   }
   ```
-- **Copilot SDK is ONE implementation** of this interface. Others: direct OpenAI API, Ollama (local), Anthropic, or no AI at all.
-- **Make AI features strictly optional.** The tool must be 100% useful without AI. AI is a differentiator, not table stakes.
-- **Pin SDK version** and don't auto-update. Test each version bump.
-- **Implement graceful degradation:** If the SDK fails, show a helpful message, not a crash.
-- **Ship AI features in a later phase** (Phase 3+), giving the SDK time to stabilize.
+- **Invalidate cache when the command changes.** If the user edits the command field, clear the suggestion cache.
+- **Show all suggestions as ghost text / dimmed defaults.** Instead of per-field "generate", show AI-suggested values as placeholders for all args at once. User can accept (tab) or override (type).
+- **Timeout handling.** If the API call takes >3 seconds, show the form without suggestions. Don't block the UI.
+- **Budget consideration.** Each Copilot API call has token cost. Batch is 1 call; per-field is N calls. Batch is 1/N the cost.
 
-**Phase relevance:** Phase 3+ (AI features). Do NOT let this block Phase 1-2.
+**Detection:** Trigger per-field generate on 5 fields sequentially. Measure total latency and check for rate limiting.
 
-**Confidence:** MEDIUM — SDK just entered preview; stability unknown. Plan for it to be unstable.
+**Phase:** Per-field AI generate design.
+
+**Confidence:** MEDIUM — Copilot SDK rate limits are not well-documented (technical preview).
 
 ---
 
-## Minor Pitfalls
+## Low-Risk Pitfalls
 
 Mistakes that cause annoyance but are fixable.
 
 ---
 
-### Pitfall 13: Value vs Pointer Receivers in Bubble Tea Models
+### Pitfall 11: Default Value Consistency Between Runtime and Edit Time
 
-**What goes wrong:** Using pointer receivers (`*Model`) for Bubble Tea's `Update()` method. This seems natural in Go but violates Bubble Tea's functional paradigm. The framework expects `Update` to return a new model value, not mutate in place. Using pointers can cause subtle bugs where the framework's internal state tracking diverges from the actual model state.
+**Feature:** Fix default value consistency at runtime/edit time
+**Risk level:** LOW — data integrity
 
-**Prevention:**
-- **Always use value receivers** for `Init()`, `Update()`, and `View()`:
-  ```go
-  func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { ... }
-  // NOT: func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) { ... }
-  ```
-- Exception: If your model contains a large data structure (like a 2000-item workflow slice), store it behind a pointer in the model struct to avoid copying:
-  ```go
-  type Model struct {
-      workflows *[]Workflow  // pointer to avoid copies
-      // ... small fields use values
-  }
-  ```
+**What happens:** Defaults can currently be specified in three places:
+1. **In the command template:** `{{name:default_value}}` (parsed by template/parser.go)
+2. **In the args YAML field:** `args: [{name: "name", default: "default_value"}]` (stored in store/workflow.go)
+3. **Auto-saved defaults** (new in v1.1)
 
-**Phase relevance:** Phase 1. Get this right in the initial model definition.
+When the picker fills parameters (`initParamFill` in paramfill.go:26-80), it uses `template.ExtractParams()` which reads from the command string. But the `store.Arg` struct may have a different default. If someone edits the command to change `{{env:prod}}` to `{{env:staging}}` but doesn't update the `args[].default` field, the picker uses "staging" (from command) while the manage form shows "prod" (from args YAML).
 
-**Confidence:** HIGH — Bubble Tea docs and examples consistently use value receivers.
-
----
-
-### Pitfall 14: YAML Tabs vs Spaces Causes Cryptic Parse Errors
-
-**What goes wrong:** Users hand-edit the YAML workflow file and use tabs for indentation. YAML strictly forbids tabs for indentation. The error message from `go-yaml.v3` is `"found character that cannot start any token"` — cryptic and unhelpful to users.
+**Warning signs:**
+- Different default values shown in picker vs manage TUI
+- Auto-saved default overwritten by template default on next run
+- User confusion: "I changed the default but it keeps using the old one"
 
 **Prevention:**
-- **Validate YAML on load** and provide human-readable error messages:
+- **Establish a single source of truth.** Recommendation: the `args[].default` field in YAML is authoritative. The command template `{{name:default}}` syntax is a convenience for initial creation only. On save, extract defaults from the command template and populate `args[].default`. On fill, always read from `args[].default`.
+- **Merge strategy on param fill:**
   ```go
-  if err != nil {
-      if strings.Contains(err.Error(), "cannot start any token") {
-          return fmt.Errorf("YAML parse error (likely tabs in indentation): %w\nHint: YAML requires spaces, not tabs, for indentation", err)
+  // Priority: args[].default > template default > ""
+  func resolveDefault(templateParam template.Param, storeArg *store.Arg) string {
+      if storeArg != nil && storeArg.Default != "" {
+          return storeArg.Default
       }
+      return templateParam.Default
   }
   ```
-- **When writing YAML programmatically,** always use spaces (go-yaml does this by default).
-- **Provide a `wf validate` command** that checks the workflow file for common issues.
-- **Consider a `wf edit <name>` command** that opens a structured editor (TUI form) instead of raw YAML, avoiding the problem entirely.
+- **Sync defaults when saving.** When the form saves a workflow, extract params from the command, merge with existing args, ensure `args[].default` matches `{{name:default}}` from the template. Surface conflicts to the user.
+- **Auto-saved defaults update `args[].default`.** Don't create a third storage location.
 
-**Phase relevance:** Phase 2 (when users start hand-editing files).
+**Detection:** Create a workflow with `{{env:prod}}` in command and `default: staging` in args YAML. Run the workflow. Which default appears?
 
-**Confidence:** HIGH — YAML spec, go-yaml behavior.
+**Phase:** Variable defaults consistency plan.
+
+**Confidence:** HIGH — code paths confirmed across parser.go, paramfill.go, and workflow.go.
 
 ---
 
-### Pitfall 15: Terminal Width Assumptions Break on Small/Large Terminals
+### Pitfall 12: Parameter CRUD State Management in Value-Copy Bubble Tea
 
-**What goes wrong:** Hardcoding layout widths (e.g., "search results take 60 columns") or assuming a minimum terminal size. Users with narrow terminals (tmux splits, small monitors) see truncated or wrapped content. Users with ultra-wide terminals see awkward empty space.
+**Feature:** Full CRUD on parameters in wf manage
+**Risk level:** LOW — engineering complexity
+
+**What happens:** Adding/removing/reordering args in the manage TUI means mutating a slice (`[]store.Arg`) across Bubble Tea's value-copy Update cycles. Since `Model.Update()` uses value receivers (per v1.0 architecture), the entire model is copied on every keystroke. If the arg slice is stored as a value in a sub-model, adding an arg in one Update cycle creates a new slice that may not propagate correctly through the model tree.
+
+**Warning signs:**
+- Arg added in the editor but gone after next keystroke
+- Stale arg data after reordering
+- Inconsistent state between View() and Update() cycles
 
 **Prevention:**
-- **Always use `tea.WindowSizeMsg`** to get actual terminal dimensions on startup and resize.
-- **Design layouts with relative widths** using lipgloss:
+- **Use the proven `formValues` pointer pattern.** The existing `formValues` struct (form.go:24-30) is heap-allocated via `vals *formValues`. Extend this pattern for args:
   ```go
-  func (m Model) View() string {
-      width := m.width  // from WindowSizeMsg
-      searchBox := lipgloss.NewStyle().Width(width - 4)
+  type paramEditorState struct {
+      args   []store.Arg
+      cursor int
+      // ... other mutable state
+  }
+  
+  type ParamEditorModel struct {
+      state *paramEditorState // pointer — survives value copies
+      theme Theme
       // ...
   }
   ```
-- **Set minimum usable width** (e.g., 40 columns) and show a "terminal too narrow" message below it.
-- **Test at 80x24** (classic terminal), **120x40** (modern default), and **40x15** (tmux split).
+- **Don't try to manage arg CRUD within the existing `FormModel`.** Create a separate `ParamEditorModel` with its own Update/View cycle.
+- **Test: rapidly add/delete args while verifying count is correct.** Write a `teatest` that adds 5 args, deletes 2, reorders 1, and asserts the final arg list matches expectations.
 
-**Phase relevance:** Phase 1 (layout system). Build responsive from the start.
+**Detection:** Add an arg, press a key, check if the arg is still present in the View output.
 
-**Confidence:** HIGH — standard TUI development practice.
+**Phase:** Parameter CRUD implementation.
+
+**Confidence:** HIGH — `formValues` pointer pattern already proven; extension is straightforward.
 
 ---
 
-### Pitfall 16: `go-yaml.v3` Silently Ignores Unknown Fields
+### Pitfall 13: ANSI Escape Codes in Dynamic Command Output Corrupt Field Extraction
 
-**What goes wrong:** A user misspells a field in their workflow YAML (`commnad` instead of `command`). `go-yaml.v3` silently ignores unknown fields by default. The workflow loads with an empty command field. No error, no warning. The user doesn't discover the issue until they try to run the workflow.
+**Feature:** List picker dynamic variable type
+**Risk level:** LOW — data quality
+
+**What happens:** Many commands produce colorized output by default when attached to a TTY (e.g., `ls --color=auto`, `grep --color=auto`, `kubectl` with `KUBECTL_COLOR=auto`). When the list picker runs a dynamic command via `sh -c`, the output may contain ANSI escape sequences (`\033[31m`, etc.). These invisible characters:
+1. Break field extraction (field 1 includes `\033[31m` prefix)
+2. Corrupt the selected value stored as a default
+3. Display incorrectly in the picker list or mess up column alignment
+
+**Warning signs:**
+- Garbled characters in selected values
+- Field extraction returns wrong content (offset by escape code length)
+- Defaults stored with invisible ANSI codes
 
 **Prevention:**
-- **Use `yaml.Decoder` with `KnownFields(true)`:**
+- **Strip ANSI escape codes from command output before processing:**
   ```go
-  decoder := yaml.NewDecoder(reader)
-  decoder.KnownFields(true)
-  err := decoder.Decode(&config)
-  // Now returns error on unknown fields
+  var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+  
+  func stripANSI(s string) string {
+      return ansiRegex.ReplaceAllString(s, "")
+  }
   ```
-- **Validate after unmarshalling:** Check required fields are non-empty.
-- **Provide helpful error messages** that suggest the correct field name (Levenshtein distance).
+  Apply to every line of dynamic command output before it enters the options list.
+- **Set `NO_COLOR=1` in the subprocess environment** to disable color output at the source:
+  ```go
+  cmd := exec.CommandContext(ctx, "sh", "-c", command)
+  cmd.Env = append(os.Environ(), "NO_COLOR=1", "TERM=dumb")
+  ```
+  This follows the [NO_COLOR convention](https://no-color.org/) supported by many CLI tools.
+- **Both approaches together** (belt and suspenders): set `NO_COLOR` to reduce ANSI output, strip remaining codes as a safety net.
 
-**Phase relevance:** Phase 1 (YAML parsing). Enable strict parsing from the start.
+**Detection:** Create a list picker with `dynamic_cmd: "ls --color=always"`. Check if the selected value contains escape codes.
 
-**Confidence:** HIGH — go-yaml.v3 documentation.
+**Phase:** List picker implementation.
+
+**Confidence:** HIGH — ANSI in subprocess output is a well-known issue; `NO_COLOR` convention is widely adopted.
 
 ---
 
-### Pitfall 17: Bracketed Paste Mode Interference with Shell Wrappers
+## Integration-Specific Pitfalls
 
-**What goes wrong:** The shell wrapper uses `print -z` (zsh) to paste the command to the prompt buffer. But if the user has Oh My Zsh with `bracketed-paste-magic` enabled, the pasted content may be double-pasted, delayed, or truncated. Fish may freeze on certain paste lengths over SSH via Windows Terminal.
+Pitfalls arising from how v1.1 features interact with the existing v1.0 architecture.
+
+---
+
+### Pitfall 14: Adding `viewExecute` State Breaks Existing Key Routing Assumptions
+
+**Feature:** Execute flow in manage TUI
+**Risk level:** MODERATE — regression risk
+
+**What happens:** The root model routes messages based on `viewState` (model.go:20-24). Adding `viewExecute` requires changes to: (a) the `viewState` enum, (b) the `Update()` switch statement, (c) the `View()` switch statement, (d) `WindowSizeMsg` handling, and (e) transition messages. But the existing code has implicit assumptions:
+- `viewCreate` and `viewEdit` share the same `updateForm` handler (model.go:258-259)
+- `KeyMsg` routing happens BEFORE state-specific routing (model.go:96-107)
+- The dialog overlay takes priority regardless of state (model.go:98-100)
+
+Adding `viewExecute` means: Does the execute view use the dialog overlay? Does Esc exit execute or does it go through the global handler? Can the user quit from execute view?
+
+**Warning signs:**
+- Esc key behavior is different in execute view vs other views
+- Ctrl+C from execute view leaves the TUI in a broken state
+- Dialog overlay doesn't render correctly during execute flow
 
 **Prevention:**
-- **Test shell wrappers with common shell frameworks:** Oh My Zsh, Prezto, Starship, fish with default config.
-- **For zsh:** `print -z` bypasses bracketed paste entirely (it writes directly to the ZLE buffer, not via terminal paste). This is actually the correct approach.
-- **For bash:** Using `READLINE_LINE` also bypasses bracketed paste.
-- **Document known incompatibilities** if any are discovered during testing.
+- **Map the full key routing table before coding.** Document which keys do what in each state:
+  | Key | Browse | Create/Edit | Settings | Execute (new) |
+  |-----|--------|-------------|----------|---------------|
+  | esc | — | → Browse | → Browse | → Browse |
+  | ctrl+c | quit | quit | quit | quit |
+  | enter | — | submit form | — | confirm exec |
+- **Follow the existing pattern exactly.** New view states must have their own `updateExecute` handler, called from the same switch in `Update()`. Don't add special cases to the global key handler.
+- **Add the new state AFTER the existing states in the iota** to avoid changing existing state values (matters if states are ever serialized or compared numerically):
+  ```go
+  const (
+      viewBrowse   viewState = iota
+      viewCreate
+      viewEdit
+      viewSettings
+      viewExecute  // NEW — after existing states
+  )
+  ```
+- **Write a state transition test.** Test that every transition (Browse → Execute → Browse, Browse → Execute → Quit) works correctly and doesn't leave the model in an inconsistent state.
 
-**Phase relevance:** Phase 2 (shell compatibility testing).
+**Detection:** Add `viewExecute`, press Esc, verify you return to Browse. Press Ctrl+C, verify clean exit.
 
-**Confidence:** MEDIUM — behavior varies across shell frameworks and terminal emulators. Needs empirical testing.
+**Phase:** Execute flow implementation.
+
+**Confidence:** HIGH — model.go routing confirmed; integration points are clear.
+
+---
+
+### Pitfall 15: Auto-Save Defaults + Parameter CRUD Create Circular Save Conflicts
+
+**Feature:** Auto-save defaults + parameter CRUD interaction
+**Risk level:** MODERATE — data consistency
+
+**What happens:** Two features independently modify the `args` field of a workflow YAML:
+1. **Auto-save defaults:** Updates `args[N].default` after parameter fill (triggered from picker)
+2. **Parameter CRUD:** Adds/removes/renames args (triggered from manage TUI)
+
+Race condition scenario: User runs a workflow from the picker (auto-save updates defaults in background). Simultaneously, the manage TUI is open on the same workflow, and the user removes an arg. The auto-save writes defaults for an arg that no longer exists. Or worse: auto-save writes the file while manage is mid-edit, and the next manage save overwrites the auto-saved defaults.
+
+**Warning signs:**
+- Deleted args reappearing after running the workflow
+- Defaults reverting to old values after editing in manage
+- YAML file containing stale/orphaned arg entries
+
+**Prevention:**
+- **File-level locking for workflow YAML writes.** Use `flock` (on Unix) or a `.lock` file to prevent concurrent writes:
+  ```go
+  func (s *YAMLStore) Save(w *Workflow) error {
+      lockPath := s.WorkflowPath(w.Name) + ".lock"
+      lock, _ := os.Create(lockPath)
+      defer lock.Close()
+      defer os.Remove(lockPath)
+      syscall.Flock(int(lock.Fd()), syscall.LOCK_EX)
+      defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+      // ... existing save logic
+  }
+  ```
+- **Read-modify-write for auto-save.** Don't cache the workflow struct. Read the current YAML, update only the default field, write back. This ensures auto-save picks up any CRUD changes made since the last read.
+- **Sequence auto-saves after the picker exits, not during.** Don't write defaults while the user is still filling params. Write once at the end, after the command is rendered and about to be pasted.
+- **In manage TUI, reload workflow from disk before opening edit form.** Don't rely on the in-memory `[]store.Workflow` slice which may be stale if auto-save modified the file.
+
+**Detection:** Open manage TUI on a workflow. From another terminal, run the same workflow via picker (triggering auto-save). Go back to manage TUI and save. Check which defaults survived.
+
+**Phase:** Must be considered when both auto-save and parameter CRUD are planned.
+
+**Confidence:** MEDIUM — race condition is architectural, not yet observable (features don't exist yet). But the risk is real given `os.WriteFile` is non-atomic.
+
+---
+
+### Pitfall 16: `goccy/go-yaml` Marshal Changes Arg Field Ordering After CRUD Edits
+
+**Feature:** Parameter CRUD + auto-save defaults
+**Risk level:** LOW — cosmetic but trust-eroding
+
+**What happens:** After parameter CRUD operations (add, remove, reorder args), the workflow is marshaled and saved. `goccy/go-yaml`'s `Marshal()` serializes struct fields in Go struct order, which may differ from the original YAML file's field order. Additionally, `omitempty` fields that were previously present (but empty) may disappear, and fields that were absent may appear. The resulting YAML diff is noisy even if the semantic content is unchanged.
+
+**Warning signs:**
+- Git diffs showing field reordering after editing args in manage
+- `omitempty` fields appearing/disappearing unpredictably
+- YAML output style changes (flow vs block) after round-trip
+
+**Prevention:**
+- **Accept and document this behavior.** Full re-marshal on CRUD operations is acceptable — the user explicitly edited the workflow. The concern is specifically for auto-save (Pitfall 2) where NO user edit should cause formatting changes.
+- **Standardize field order in `store.Workflow`** struct tag order. Ensure the Go struct field order matches the desired YAML output order (name, command, description, tags, args).
+- **For parameter CRUD specifically:** Since the user is explicitly editing, full re-marshal is fine. Just ensure the output is clean and consistent.
+- **Test:** Add an arg via CRUD, save, check that existing fields (name, command, etc.) are in the expected order and style.
+
+**Detection:** Create a workflow via YAML editor with specific field ordering. Edit args in manage. Check if non-arg fields moved.
+
+**Phase:** Parameter CRUD implementation.
+
+**Confidence:** HIGH — `goccy/go-yaml` marshaling behavior verified.
 
 ---
 
@@ -529,40 +644,39 @@ Mistakes that cause annoyance but are fixable.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |---|---|---|
-| **Phase 1: Core TUI scaffold** | Terminal state corruption on panic (#5) | `defer term.Restore()` in main() from day one |
-| **Phase 1: Shell integration** | TIOCSTI is dead (#1), shell-specific wrappers (#4) | Shell function approach with `wf init <shell>` |
-| **Phase 1: YAML storage** | Norway problem (#3), unknown fields (#16), nested quotes (#10) | Typed string fields, `DoubleQuotedStyle`, `KnownFields(true)`, round-trip tests |
-| **Phase 1: TUI mode** | Alt screen vs inline confusion (#8) | Pick one mode per invocation, don't dynamically switch |
-| **Phase 1: State management** | State explosion (#2) | Tree of models pattern from initial scaffold |
-| **Phase 1: Event loop** | Blocking Update/View (#9) | All I/O via tea.Cmd from first implementation |
-| **Phase 1: Config paths** | macOS XDG surprise (#7) | Use `adrg/xdg`, never `os.UserConfigDir()` |
-| **Phase 2: Parameterized workflows** | Command injection (#6), quote mangling (#10) | Treat commands as opaque strings, escape display values |
-| **Phase 2: Shell compat** | Bash/fish wrapper differences (#4), bracketed paste (#17) | Test all three shells in CI |
-| **Phase 2: User editing** | Tabs in YAML (#14) | Validate + helpful error messages |
-| **Phase 3: Search at scale** | Fuzzy search perf (#11) | Debounce + proven library + benchmark with 2000 items |
-| **Phase 3: AI features** | Copilot SDK instability (#12) | Interface abstraction, optional feature, pin version |
-| **All phases: TUI correctness** | Value vs pointer receivers (#13), terminal width (#15) | Value receivers, responsive layouts from start |
+| **Auto-save defaults** | Non-atomic `os.WriteFile` (#1), YAML re-marshal destroys formatting (#2), default consistency (#11) | Atomic write pattern, surgical AST update or separate defaults file, single source of truth for defaults |
+| **Parameter CRUD in TUI** | huh doesn't support dynamic fields (#3), value-copy state management (#12), save conflicts with auto-save (#15) | Custom param editor view (not huh), pointer pattern for mutable state, file-level locking |
+| **List picker variable type** | Unbounded shell execution (#4), ANSI codes in output (#13) | Configurable timeout + line limit, strip ANSI + NO_COLOR env var |
+| **Execute flow in manage** | Alt-screen conflicts with paste-to-prompt (#5), view state routing (#14) | Clipboard-first or exit-then-print, careful state enum extension |
+| **Syntax highlighting** | Per-frame render cost (#6) | Cache highlighted output, limit to preview pane |
+| **Warp terminal compat** | Ctrl+G interception (#7) | Configurable fallback keybinding, TERM_PROGRAM detection |
+| **Overscroll fix** | ScrollOff not reclamped on height changes (#8) | Bounds checking in renderList, ensureCursorVisible on every height change |
+| **Folder auto-display** | Filter churn on rapid cursor movement (#9) | Debounce 150ms, consistent behavior across folder/tag modes |
+| **Per-field AI generate** | N+1 API calls (#10) | Batch suggestion with field focus, cache results |
 
 ---
 
 ## Sources
 
-### HIGH Confidence (Official docs, kernel changelog, library docs)
-- Linux kernel TIOCSTI deprecation: kernel.org changelog for Linux 6.2, CVE-2023-28339
-- Bubble Tea architecture: github.com/charmbracelet/bubbletea (official README, examples, issues)
-- go-yaml.v3 docs: pkg.go.dev/gopkg.in/yaml.v3
-- YAML 1.1/1.2 boolean handling: yaml.org/type/bool.html
-- Go `os/exec` security: pkg.go.dev/os/exec
-- `adrg/xdg` library: github.com/adrg/xdg
-- Go `os.UserConfigDir()`: pkg.go.dev/os#UserConfigDir
-- GitHub Copilot CLI SDK: github.com/github/copilot-cli-sdk-go (technical preview, January 2026)
+### HIGH Confidence (codebase analysis, official docs)
+- `internal/store/yaml.go:45` — `os.WriteFile` confirmed non-atomic
+- `internal/manage/form.go:101-166` — huh form built once at transition, no dynamic field API
+- `internal/manage/form.go:24-50` — `formValues` pointer pattern for value-copy survival
+- `internal/manage/model.go:20-24` — viewState enum, routing structure
+- `internal/manage/browse.go:86-95, 306-314` — listHeight/scrollOff calculations
+- `internal/picker/paramfill.go:99-132` — executeDynamic with 5-second timeout
+- `internal/template/parser.go:33-58` — ExtractParams with template-level defaults
+- `internal/store/workflow.go:18-25` — Arg struct with separate default field
+- Go `os.Rename` atomicity — pkg.go.dev/os, POSIX spec
+- `goccy/go-yaml` AST support — github.com/goccy/go-yaml `ast` package
 
-### MEDIUM Confidence (Multiple community sources agreeing)
-- Shell function wrapper patterns: fzf, zoxide, atuin implementations
-- Fuzzy search performance: sahilm/fuzzy benchmarks, fzf algorithm documentation
-- Oh My Zsh bracketed paste issues: github.com/ohmyzsh/ohmyzsh issues
-- Terminal emulator differences: various terminal documentation
+### MEDIUM Confidence (cross-referenced from multiple sources)
+- Warp terminal Ctrl+G interception — user reports, STATE.md blocker note
+- Warp Kitty keyboard protocol bugs — Feb 2026 search results
+- NO_COLOR convention — https://no-color.org/
+- ANSI stripping regex — widely used pattern, standard escape code format
 
-### LOW Confidence (Needs validation)
-- Copilot SDK stability trajectory — too new to assess
-- Fish shell freeze on specific paste lengths — reported but not widely confirmed
+### LOW Confidence (needs validation)
+- `goccy/go-yaml` AST surgical update capabilities — API exists, but precision of format preservation unverified
+- Warp terminal specific keybinding workarounds — needs empirical testing
+- Copilot SDK rate limits for per-field generation — not documented (technical preview)
