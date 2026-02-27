@@ -101,13 +101,38 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated during roadmap creation) | | |
+| DFLT-01 | Phase 8 | Pending |
+| DFLT-02 | Phase 8 | Pending |
+| EXEC-01 | Phase 9 | Pending |
+| EXEC-02 | Phase 9 | Pending |
+| EXEC-03 | Phase 9 | Pending |
+| EXEC-04 | Phase 9 | Pending |
+| PCRD-01 | Phase 10 | Pending |
+| PCRD-02 | Phase 10 | Pending |
+| PCRD-03 | Phase 10 | Pending |
+| PCRD-04 | Phase 10 | Pending |
+| PCRD-05 | Phase 10 | Pending |
+| PCRD-06 | Phase 10 | Pending |
+| PCRD-07 | Phase 10 | Pending |
+| PFAI-01 | Phase 10 | Pending |
+| PFAI-02 | Phase 10 | Pending |
+| LIST-01 | Phase 11 | Pending |
+| LIST-02 | Phase 11 | Pending |
+| LIST-03 | Phase 11 | Pending |
+| LIST-04 | Phase 11 | Pending |
+| LIST-05 | Phase 11 | Pending |
+| DISP-01 | Phase 7 | Pending |
+| DISP-02 | Phase 7 | Pending |
+| MGUX-01 | Phase 7 | Pending |
+| MGUX-02 | Phase 7 | Pending |
+| TERM-01 | Phase 7 | Pending |
+| TERM-02 | Phase 7 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22
+- v1.1 requirements: 26 total
+- Mapped to phases: 26
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*
