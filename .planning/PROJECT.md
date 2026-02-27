@@ -38,7 +38,26 @@ v1.0 delivers the complete workflow manager: YAML storage with Norway Problem pr
 
 ### Active
 
-(None yet — define with `/gsd-new-milestone`)
+- [ ] Auto-save entered variable values as defaults in workflow config
+- [ ] Fix default value consistency at runtime/edit time
+- [ ] Syntax highlighting in workflow list rendering
+- [ ] Auto-display folder contents in manage without extra keypress
+- [ ] Warp terminal Ctrl+G compatibility + fallback keybinding
+- [ ] Full execute flow inside wf manage (param fill, paste to prompt)
+- [ ] Per-field Generate action for individual variables in manage
+- [ ] Fix command preview panel overscroll in manage view
+- [ ] List picker dynamic variable type (shell command output, select one, store specific field)
+
+## Current Milestone: v1.1 Polish & Power
+
+**Goal:** Fix variable/default reliability, improve manage UX with execute flow and navigation fixes, add list picker variable type, and resolve terminal compatibility issues.
+
+**Target features:**
+- Variable defaults: auto-save and consistency fixes
+- Manage UX: folder auto-display, execute flow, per-field generate, overscroll fix
+- List picker: general-purpose dynamic variable with field extraction
+- Terminal compat: Warp Ctrl+G fix + fallback keybinding
+- Display: syntax highlighting in workflow list
 
 ### Out of Scope
 
@@ -92,4 +111,4 @@ Known tech debt:
 | Typed string fields for YAML | Eliminates Norway Problem without custom MarshalYAML | Good |
 
 ---
-*Last updated: 2026-02-25 after v1.0 milestone*
+*Last updated: 2026-02-27 after v1.1 milestone started*
