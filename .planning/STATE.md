@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 Phase: Not started (defining requirements)
 Plan: —
 Status: Defining requirements
-Last activity: 2026-02-27 — Milestone v1.1 started
+Last activity: 2026-02-27 — Milestone v1.1 scope revised (added parameter CRUD)
 
 ## Accumulated Context
 
@@ -32,5 +32,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-27
-Stopped at: Defining v1.1 milestone scope
-Resume with: Continue requirements definition
+Stopped at: Defining v1.1 requirements (scope revised)
+Resume with: Continue requirements definition and roadmap creation
