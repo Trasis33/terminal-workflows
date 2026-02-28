@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
 
@@ -29,12 +30,35 @@ func runList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	folderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	nameStyle := lipgloss.NewStyle().Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+
 	for _, wf := range workflows {
+		name := wf.Name
+		folder := ""
+		if idx := strings.LastIndex(wf.Name, "/"); idx >= 0 {
+			folder = wf.Name[:idx]
+			name = wf.Name[idx+1:]
+		}
+
+		prefix := ""
+		if folder != "" {
+			prefix = folderStyle.Render(folder + "/")
+		}
+
+		desc := ""
+		if wf.Description != "" {
+			desc = "  " + descStyle.Render(wf.Description)
+		}
+
 		tags := ""
 		if len(wf.Tags) > 0 {
-			tags = "  [" + strings.Join(wf.Tags, ", ") + "]"
+			tags = "  " + tagStyle.Render("["+strings.Join(wf.Tags, ", ")+"]")
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s%s\n", wf.Name, wf.Description, tags)
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%s%s%s%s\n", prefix, nameStyle.Render(name), desc, tags)
 	}
 
 	return nil

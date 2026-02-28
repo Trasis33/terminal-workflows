@@ -97,8 +97,16 @@ func (s SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 		switch msg.String() {
 		case "up", "k":
 			s.moveCursor(-1)
+			ft, fv := s.SelectedFilter()
+			return s, func() tea.Msg {
+				return sidebarFilterMsg{filterType: ft, filterValue: fv}
+			}
 		case "down", "j":
 			s.moveCursor(1)
+			ft, fv := s.SelectedFilter()
+			return s, func() tea.Msg {
+				return sidebarFilterMsg{filterType: ft, filterValue: fv}
+			}
 		case "enter":
 			ft, fv := s.SelectedFilter()
 			return s, func() tea.Msg {

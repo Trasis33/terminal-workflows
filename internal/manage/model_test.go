@@ -92,6 +92,18 @@ func TestViewStateTransitions(t *testing.T) {
 	assert.Equal(t, viewSettings, model.state)
 }
 
+func TestSidebarMoveEmitsFilterMsg(t *testing.T) {
+	sidebar := NewSidebarModel([]string{"infra", "ops"}, nil, DefaultTheme())
+	updated, cmd := sidebar.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.NotNil(t, cmd)
+	msg := cmd()
+	filterMsg, ok := msg.(sidebarFilterMsg)
+	assert.True(t, ok)
+	assert.Equal(t, "folder", filterMsg.filterType)
+	assert.Equal(t, "infra", filterMsg.filterValue)
+	assert.Equal(t, 1, updated.folderCursor)
+}
+
 func TestDialogOverlay(t *testing.T) {
 	s := &mockStore{}
 	m := New(s, nil, DefaultTheme(), "")

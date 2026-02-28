@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fredriklanga/wf/internal/highlight"
 	"github.com/fredriklanga/wf/internal/store"
 	"github.com/fredriklanga/wf/internal/template"
 	"github.com/sahilm/fuzzy"
@@ -43,6 +44,7 @@ type Model struct {
 	results     []SearchResult
 	cursor      int
 	preview     viewport.Model
+	tokenStyles highlight.TokenStyles
 
 	// Param fill state
 	selected          *store.Workflow
@@ -83,6 +85,7 @@ func New(workflows []store.Workflow) Model {
 		searchInput: ti,
 		preview:     vp,
 		maxVisible:  10,
+		tokenStyles: highlight.TokenStylesFromColors("49", "158", "73", "242", "250"),
 	}
 
 	m.performSearch("")
@@ -219,7 +222,8 @@ func (m *Model) performSearch(raw string) {
 // updatePreview sets the preview pane content to the selected workflow's command.
 func (m *Model) updatePreview() {
 	if len(m.results) > 0 && m.cursor < len(m.results) {
-		m.preview.SetContent(m.results[m.cursor].Workflow.Command)
+		cmd := m.results[m.cursor].Workflow.Command
+		m.preview.SetContent(highlight.Shell(cmd, m.tokenStyles))
 	} else {
 		m.preview.SetContent("")
 	}

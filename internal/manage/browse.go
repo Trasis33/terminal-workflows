@@ -5,8 +5,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fredriklanga/wf/internal/highlight"
 	"github.com/fredriklanga/wf/internal/picker"
 	"github.com/fredriklanga/wf/internal/store"
 )
@@ -36,6 +38,9 @@ type BrowseModel struct {
 	filterType  string // "folder", "tag", or "" (from sidebar)
 	filterValue string // the folder path or tag name
 
+	previewVP   viewport.Model
+	tokenStyles highlight.TokenStyles
+
 	aiError string // transient AI error, cleared on next key press
 
 	width  int
@@ -58,6 +63,14 @@ func NewBrowseModel(workflows []store.Workflow, folders []string, tags []string,
 		searchInput: ti,
 		theme:       theme,
 		keys:        keys,
+		tokenStyles: highlight.TokenStylesFromColors(
+			theme.Colors.Primary,
+			theme.Colors.Secondary,
+			theme.Colors.Tertiary,
+			theme.Colors.Dim,
+			theme.Colors.Text,
+		),
+		previewVP: viewport.New(0, 4),
 	}
 	b.applyFilter()
 	return b
@@ -72,6 +85,14 @@ func (b *BrowseModel) SetDimensions(width, height int) {
 	// Sidebar gets its own height minus preview/hints
 	listHeight := height - b.previewHeight() - 3        // hints + borders
 	b.sidebar.SetDimensions(sidebarWidth, listHeight-4) // account for header/padding
+
+	previewW := width - 8 // preview border + padding
+	if previewW < 20 {
+		previewW = 20
+	}
+	b.previewVP.Width = previewW
+	b.previewVP.Height = 4
+	b.updatePreviewContent()
 }
 
 // previewHeight returns the height allocated for the preview pane.
@@ -141,6 +162,7 @@ func (b *BrowseModel) applyFilter() {
 		b.cursor = 0
 	}
 	b.scrollOff = 0
+	b.updatePreviewContent()
 }
 
 // Update handles messages for the browse view.
@@ -178,6 +200,7 @@ func (b BrowseModel) updateListFocus(msg tea.KeyMsg) (BrowseModel, tea.Cmd) {
 		if b.cursor > 0 {
 			b.cursor--
 			b.ensureCursorVisible()
+			b.updatePreviewContent()
 		}
 		return b, nil
 
@@ -185,7 +208,16 @@ func (b BrowseModel) updateListFocus(msg tea.KeyMsg) (BrowseModel, tea.Cmd) {
 		if b.cursor < len(b.filtered)-1 {
 			b.cursor++
 			b.ensureCursorVisible()
+			b.updatePreviewContent()
 		}
+		return b, nil
+
+	case "J":
+		b.previewVP.LineDown(1)
+		return b, nil
+
+	case "K":
+		b.previewVP.LineUp(1)
 		return b, nil
 
 	case "/":
@@ -357,11 +389,12 @@ func (b BrowseModel) View() string {
 		sections = append(sections, b.searchInput.View(), "")
 	}
 
+	sections = append(sections, b.renderBreadcrumb())
 	sections = append(sections, topPane)
 
 	// Preview pane
 	if b.theme.Layout.ShowPreview {
-		previewContent := b.renderPreview()
+		previewContent := b.renderPreviewPane()
 		previewWidth := b.width - 4
 		if previewWidth < 20 {
 			previewWidth = 20
@@ -381,6 +414,12 @@ func (b BrowseModel) renderList(width, height int) string {
 	s := b.theme.Styles()
 
 	if len(b.filtered) == 0 {
+		if b.filterType == "folder" {
+			return s.Dim.Render("  No workflows in " + b.filterValue + "/")
+		}
+		if b.filterType == "tag" {
+			return s.Dim.Render("  No workflows tagged " + b.filterValue)
+		}
 		return s.Dim.Render("  No workflows found")
 	}
 
@@ -439,12 +478,24 @@ func (b BrowseModel) renderList(width, height int) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
-// renderPreview renders the preview pane showing the selected workflow's details.
-func (b BrowseModel) renderPreview() string {
+func (b BrowseModel) renderBreadcrumb() string {
+	s := b.theme.Styles()
+	switch b.filterType {
+	case "folder":
+		return s.Highlight.Render("Folder: " + b.filterValue + "/")
+	case "tag":
+		return s.Tag.Render("Tag: " + b.filterValue)
+	default:
+		return s.Dim.Render("All Workflows")
+	}
+}
+
+func (b *BrowseModel) updatePreviewContent() {
 	s := b.theme.Styles()
 
 	if len(b.filtered) == 0 || b.cursor >= len(b.filtered) {
-		return s.Dim.Render("No workflow selected")
+		b.previewVP.SetContent(s.Dim.Render("No workflow selected"))
+		return
 	}
 
 	wf := b.filtered[b.cursor]
@@ -452,7 +503,7 @@ func (b BrowseModel) renderPreview() string {
 	var parts []string
 
 	// Command
-	parts = append(parts, s.Highlight.Render("Command: ")+wf.Command)
+	parts = append(parts, highlight.Shell(wf.Command, b.tokenStyles))
 
 	// Folder (derived from name)
 	if idx := strings.LastIndex(wf.Name, "/"); idx >= 0 {
@@ -469,7 +520,24 @@ func (b BrowseModel) renderPreview() string {
 		parts = append(parts, s.Dim.Render("Desc:    ")+wf.Description)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	b.previewVP.SetContent(lipgloss.JoinVertical(lipgloss.Left, parts...))
+	b.previewVP.GotoTop()
+}
+
+func (b BrowseModel) renderPreviewPane() string {
+	content := b.previewVP.View()
+	if b.previewVP.TotalLineCount() <= b.previewVP.Height {
+		return content
+	}
+	percent := int(b.previewVP.ScrollPercent() * 100)
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	indicator := b.theme.Styles().Dim.Render(fmt.Sprintf("Scroll %d%%", percent))
+	return lipgloss.JoinVertical(lipgloss.Left, content, indicator)
 }
 
 // browsetruncate truncates a string to maxLen, adding "…" if truncated.
@@ -497,7 +565,7 @@ func (b BrowseModel) renderHints(s themeStyles) string {
 	} else if b.focus == focusSidebar {
 		hints = "↑↓ navigate  enter filter  →/esc list  tab folders/tags  q quit"
 	} else {
-		hints = "n new  e edit  d delete  m move  G generate  A autofill  / search  tab folders/tags  ←/h sidebar  S settings  q quit"
+		hints = "n new  e edit  d delete  m move  G generate  A autofill  / search  J/K preview scroll  tab folders/tags  ←/h sidebar  S settings  q quit"
 	}
 	return s.Hint.Render("  " + hints)
 }
