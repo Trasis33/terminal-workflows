@@ -44,18 +44,18 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Display
 
-- [ ] **DISP-01**: User sees syntax-highlighted shell commands in the manage preview pane
-- [ ] **DISP-02**: User sees syntax-highlighted shell commands in the manage browse list
+- [x] **DISP-01**: User sees syntax-highlighted shell commands in the manage preview pane
+- [x] **DISP-02**: User sees syntax-highlighted shell commands in the manage browse list
 
 ### Manage UX
 
-- [ ] **MGUX-01**: User sees folder contents auto-displayed when navigating to a folder in manage
-- [ ] **MGUX-02**: User can scroll the command preview panel without overscrolling past content
+- [x] **MGUX-01**: User sees folder contents auto-displayed when navigating to a folder in manage
+- [x] **MGUX-02**: User can scroll the command preview panel without overscrolling past content
 
 ### Terminal Compatibility
 
-- [ ] **TERM-01**: User on Warp terminal is automatically offered a working keybinding (Ctrl+G conflict detected and fallback applied)
-- [ ] **TERM-02**: User can configure a custom keybinding via `wf init --key` flag
+- [x] **TERM-01**: User on Warp terminal is automatically offered a working keybinding (Ctrl+G conflict detected and fallback applied)
+- [x] **TERM-02**: User can configure a custom keybinding via `wf init --key` flag
 
 ## Future Requirements
 
@@ -121,12 +121,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIST-03 | Phase 11 | Pending |
 | LIST-04 | Phase 11 | Pending |
 | LIST-05 | Phase 11 | Pending |
-| DISP-01 | Phase 7 | Pending |
-| DISP-02 | Phase 7 | Pending |
-| MGUX-01 | Phase 7 | Pending |
-| MGUX-02 | Phase 7 | Pending |
-| TERM-01 | Phase 7 | Pending |
-| TERM-02 | Phase 7 | Pending |
+| DISP-01 | Phase 7 | Complete |
+| DISP-02 | Phase 7 | Complete |
+| MGUX-01 | Phase 7 | Complete |
+| MGUX-02 | Phase 7 | Complete |
+| TERM-01 | Phase 7 | Complete |
+| TERM-02 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 26 total
@@ -135,4 +135,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after roadmap creation*
+*Last updated: 2026-02-28 after phase 7 completion*

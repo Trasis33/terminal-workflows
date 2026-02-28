@@ -27,7 +27,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
 
 **Milestone Goal:** Improve manage UX with execute flow and parameter CRUD, add list picker variable type, resolve terminal compatibility issues, add syntax highlighting and smarter default handling.
 
-- [ ] **Phase 7: Polish & Terminal Compat** - Syntax highlighting, UX fixes, Warp keybinding
+- [x] **Phase 7: Polish & Terminal Compat** - Syntax highlighting, UX fixes, Warp keybinding (completed 2026-02-28)
 - [ ] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults
 - [ ] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI
 - [ ] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate
@@ -47,9 +47,9 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
   5. User can run `wf init zsh --key ctrl+o` to bind wf to a custom keybinding of their choice
 **Plans**: 3 plans
 Plans:
-- [ ] 07-01-PLAN.md — Syntax highlighting package (Chroma v2 + lipgloss token styling)
-- [ ] 07-02-PLAN.md — Keybinding system + Warp terminal compatibility
-- [ ] 07-03-PLAN.md — Manage TUI integration (sidebar auto-filter, viewport preview, wf list coloring)
+- [x] 07-01-PLAN.md — Syntax highlighting package (Chroma v2 + lipgloss token styling)
+- [x] 07-02-PLAN.md — Keybinding system + Warp terminal compatibility
+- [x] 07-03-PLAN.md — Manage TUI integration (sidebar auto-filter, viewport preview, wf list coloring)
 
 ### Phase 8: Smart Defaults
 **Goal**: Users never retype parameter values they've already entered — the system remembers and offers previous values as defaults
@@ -100,7 +100,7 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-6 | v1.0 | 28/28 | Complete | 2026-02-25 |
-| 7. Polish & Terminal Compat | v1.1 | 0/3 | Not started | - |
+| 7. Polish & Terminal Compat | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 8. Smart Defaults | v1.1 | 0/TBD | Not started | - |
 | 9. Execute in Manage | v1.1 | 0/TBD | Not started | - |
 | 10. Parameter CRUD & Per-Field AI | v1.1 | 0/TBD | Not started | - |
