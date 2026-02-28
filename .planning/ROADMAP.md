@@ -58,7 +58,9 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User runs `wf register` or saves a command, and the original values from the command appear as parameter defaults in the saved workflow
   2. User filling parameters in the picker sees previous values pre-populated and can accept them with Enter instead of retyping
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 08-01-PLAN.md — Default capture in register + picker pre-fill with dim styling
 
 ### Phase 9: Execute in Manage
 **Goal**: Users can test and execute workflows without leaving the manage TUI — complete param fill, clipboard copy, or paste-to-prompt
