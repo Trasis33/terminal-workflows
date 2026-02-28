@@ -1,15 +1,11 @@
 package shell
 
-// BashScript is the shell integration script for bash.
-// Users source this via: eval "$(wf init bash)"
-//
-// Pattern verified from fzf key-bindings.bash source.
-// Uses READLINE_LINE/READLINE_POINT for readline buffer manipulation.
-// Requires bash >= 4.0 for bind -x with READLINE_LINE.
-// wf pick renders TUI directly to /dev/tty, so no fd swap is needed —
-// stdout carries only the selected command.
-const BashScript = `# wf shell integration for bash
+import "text/template"
+
+// BashTemplate is the shell integration template for bash.
+var BashTemplate = template.Must(template.New("bash").Parse(`# wf shell integration for bash
 # Usage: eval "$(wf init bash)"
+{{.Comment}}
 
 _wf_picker() {
   local output
@@ -19,8 +15,8 @@ _wf_picker() {
     READLINE_POINT=${#READLINE_LINE}
   fi
 }
-bind -m emacs-standard -x '"\C-g": _wf_picker'
-bind -m vi-insert -x '"\C-g": _wf_picker'
+bind -m emacs-standard -x '"{{.Key}}": _wf_picker'
+bind -m vi-insert -x '"{{.Key}}": _wf_picker'
 
 _wf_precmd() {
   local _wf_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wf"
@@ -30,4 +26,4 @@ _wf_precmd() {
   [[ -n "$_last" ]] && printf '%s' "$_last" > "$_wf_dir/last_cmd"
 }
 PROMPT_COMMAND="_wf_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-`
+`))
