@@ -25,10 +25,10 @@ func New(s store.Store, workflows []store.Workflow, theme Theme, configDir strin
 
 // Run launches the management TUI as a full-screen alt-screen program.
 // This is the main entry point called by the cobra command.
-func Run(s store.Store) error {
+func Run(s store.Store) (string, error) {
 	workflows, err := s.List()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cfgDir := config.ConfigDir()
@@ -40,6 +40,14 @@ func Run(s store.Store) error {
 
 	m := New(s, workflows, theme, cfgDir)
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	_, err = p.Run()
-	return err
+	final, err := p.Run()
+	if err != nil {
+		return "", err
+	}
+
+	fm, ok := final.(Model)
+	if !ok {
+		return "", nil
+	}
+	return fm.result, nil
 }

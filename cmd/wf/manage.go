@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/fredriklanga/wf/internal/manage"
 	"github.com/spf13/cobra"
 )
@@ -19,9 +22,16 @@ Keyboard shortcuts:
   d        Delete selected workflow
   /        Search workflows
   tab      Toggle sidebar (folders/tags)
-  S        Open settings
+	S        Open settings
   q        Quit`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return manage.Run(getMultiStore())
+		result, err := manage.Run(getMultiStore())
+		if err != nil {
+			return err
+		}
+		if result != "" {
+			fmt.Fprintln(os.Stdout, result)
+		}
+		return nil
 	},
 }
