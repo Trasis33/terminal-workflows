@@ -71,7 +71,10 @@ Plans:
   2. User filling parameters inside manage sees the same inline param fill UX as the picker (full command visible, cursor on current param)
   3. User completing param fill in manage can copy the result to clipboard and continue managing workflows
   4. User completing param fill in manage can choose to exit manage and have the completed command pasted to their shell prompt
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 09-01-PLAN.md — ExecuteDialogModel with param fill + action menu, manage return path for paste-to-prompt
+- [ ] 09-02-PLAN.md — Browse integration (Enter key trigger), clipboard copy, flash messages, tests, human verify
 
 ### Phase 10: Parameter CRUD & Per-Field AI
 **Goal**: Users can fully manage parameters on existing workflows from within the manage TUI — add, remove, rename, change types, edit metadata — and use AI to generate individual field values
