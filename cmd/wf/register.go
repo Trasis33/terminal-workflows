@@ -178,7 +178,7 @@ func applyDetectedParams(command string, scanner *bufio.Scanner) string {
 
 	fmt.Println("Detected potential parameters:")
 	for i, s := range suggestions {
-		fmt.Printf("  %d. %s → {{%s}}\n", i+1, s.Original, s.ParamName)
+		fmt.Printf("  %d. %s → {{%s}} (default: %s)\n", i+1, s.Original, s.ParamName, s.Original)
 	}
 
 	fmt.Print("Apply all? (y/n/select numbers e.g. 1,3): ")
@@ -212,8 +212,14 @@ func applyDetectedParams(command string, scanner *bufio.Scanner) string {
 		return command
 	}
 
-	// Apply substitutions in reverse order (to preserve positions)
-	// First, sort selected indices by position descending
+	result := substituteParams(command, suggestions, selected)
+
+	fmt.Printf("Command: %s\n", result)
+	return result
+}
+
+func substituteParams(command string, suggestions []register.Suggestion, selected []int) string {
+	// Apply substitutions in reverse order to preserve absolute positions.
 	sortedSel := make([]int, len(selected))
 	copy(sortedSel, selected)
 	for i := 0; i < len(sortedSel)-1; i++ {
@@ -227,11 +233,9 @@ func applyDetectedParams(command string, scanner *bufio.Scanner) string {
 	result := command
 	for _, idx := range sortedSel {
 		s := suggestions[idx]
-		replacement := "{{" + s.ParamName + "}}"
+		replacement := "{{" + s.ParamName + ":" + s.Original + "}}"
 		result = result[:s.Start] + replacement + result[s.End:]
 	}
-
-	fmt.Printf("Command: %s\n", result)
 	return result
 }
 
