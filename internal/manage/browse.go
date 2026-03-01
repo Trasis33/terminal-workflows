@@ -41,7 +41,8 @@ type BrowseModel struct {
 	previewVP   viewport.Model
 	tokenStyles highlight.TokenStyles
 
-	aiError string // transient AI error, cleared on next key press
+	aiError  string // transient AI error, cleared on next key press
+	flashMsg string
 
 	width  int
 	height int
@@ -237,6 +238,13 @@ func (b BrowseModel) updateListFocus(msg tea.KeyMsg) (BrowseModel, tea.Cmd) {
 
 	case "n":
 		return b, func() tea.Msg { return switchToCreateMsg{} }
+
+	case "enter":
+		if len(b.filtered) > 0 {
+			wf := b.filtered[b.cursor]
+			return b, func() tea.Msg { return showExecuteDialogMsg{workflow: wf} }
+		}
+		return b, nil
 
 	case "e":
 		if len(b.filtered) > 0 {
@@ -558,6 +566,10 @@ func (b BrowseModel) renderHints(s themeStyles) string {
 		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 		return errStyle.Render("  ⚠ " + b.aiError)
 	}
+	if b.flashMsg != "" {
+		flashStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("49")).Bold(true)
+		return flashStyle.Render("  ✓ " + b.flashMsg)
+	}
 
 	var hints string
 	if b.searching {
@@ -565,7 +577,7 @@ func (b BrowseModel) renderHints(s themeStyles) string {
 	} else if b.focus == focusSidebar {
 		hints = "↑↓ navigate  enter filter  →/esc list  tab folders/tags  q quit"
 	} else {
-		hints = "n new  e edit  d delete  m move  G generate  A autofill  / search  J/K preview scroll  tab folders/tags  ←/h sidebar  S settings  q quit"
+		hints = "enter run  n new  e edit  d delete  m move  G generate  A autofill  / search  J/K preview scroll  tab folders/tags  ←/h sidebar  S settings  q quit"
 	}
 	return s.Hint.Render("  " + hints)
 }

@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fredriklanga/wf/internal/ai"
@@ -37,6 +39,8 @@ type workflowSavedMsg struct{ workflow store.Workflow }
 type saveErrorMsg struct{ err error }
 type themeSavedMsg struct{}
 type moveWorkflowMsg struct{ workflow store.Workflow }
+type showExecuteDialogMsg struct{ workflow store.Workflow }
+type clearFlashMsg struct{}
 
 // workflowsLoadedMsg carries reloaded workflows from the store.
 type workflowsLoadedMsg struct {
@@ -66,10 +70,16 @@ type Model struct {
 
 	// Dialog overlay (nil = no dialog active).
 	dialog *DialogModel
+	// Execute dialog overlay for run/copy/paste flow.
+	execDialog *ExecuteDialogModel
 
 	// AI loading state.
 	aiLoading     bool
 	aiLoadingTask string
+
+	// Flash and result state.
+	flashMsg string
+	result   string
 }
 
 // Init returns the initial command for the management TUI.
@@ -94,6 +104,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.execDialog != nil {
+			return m.updateExecDialog(msg)
+		}
 		// Dialog gets priority if active.
 		if m.dialog != nil {
 			return m.updateDialog(msg)
@@ -107,6 +120,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case dialogResultMsg:
 		return m.handleDialogResult(msg)
+
+	case executeDialogDynamicMsg:
+		if m.execDialog == nil {
+			return m, nil
+		}
+		dlg := *m.execDialog
+		var cmd tea.Cmd
+		dlg, cmd = dlg.Update(msg)
+		m.execDialog = &dlg
+		return m, cmd
 
 	case refreshWorkflowsMsg:
 		return m, m.loadWorkflows()
@@ -171,6 +194,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		dlg := NewMoveDialog(msg.workflow.Name, folders, m.theme)
 		m.dialog = &dlg
 		return m, nil
+
+	case showExecuteDialogMsg:
+		dialogWidth := m.width * 65 / 100
+		if dialogWidth < 50 {
+			dialogWidth = 50
+		}
+		if dialogWidth > 90 {
+			dialogWidth = 90
+		}
+		dlg := NewExecuteDialog(msg.workflow, dialogWidth, m.theme)
+		m.execDialog = &dlg
+		cmds := []tea.Cmd{dlg.Init()}
+		cmds = append(cmds, dlg.InitCmds()...)
+		return m, tea.Batch(cmds...)
 
 	case switchToSettingsMsg:
 		m.prevState = m.state
@@ -249,6 +286,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form = NewFormModel("edit", &merged, m.store, tags, folders, m.theme)
 		m.form.SetDimensions(m.width, m.height)
 		return m, m.form.Init()
+
+	case clearFlashMsg:
+		m.flashMsg = ""
+		m.browse.flashMsg = ""
+		return m, nil
 	}
 
 	// Route to active view.
@@ -287,8 +329,42 @@ func (m Model) updateDialog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m Model) updateExecDialog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	dlg := *m.execDialog
+	var cmd tea.Cmd
+	dlg, cmd = dlg.Update(msg)
+	m.execDialog = &dlg
+	return m, cmd
+}
+
 // handleDialogResult processes results from dialog interactions.
 func (m Model) handleDialogResult(msg dialogResultMsg) (tea.Model, tea.Cmd) {
+	if msg.dtype == dialogExecute {
+		m.execDialog = nil
+		if !msg.confirmed {
+			return m, nil
+		}
+
+		action := msg.data["action"]
+		command := msg.data["command"]
+		switch action {
+		case "copy":
+			if err := clipboard.WriteAll(command); err != nil {
+				m.browse.aiError = "Clipboard error: " + err.Error()
+				return m, nil
+			}
+			m.flashMsg = "Copied!"
+			m.browse.flashMsg = m.flashMsg
+			return m, tea.Tick(1500*time.Millisecond, func(time.Time) tea.Msg {
+				return clearFlashMsg{}
+			})
+		case "paste":
+			m.result = command
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+
 	m.dialog = nil // dismiss dialog
 
 	if !msg.confirmed {
@@ -446,6 +522,10 @@ func (m Model) View() string {
 		base = m.settings.View()
 	default:
 		base = m.viewBrowse()
+	}
+
+	if m.execDialog != nil {
+		return m.renderOverlay(base, m.execDialog.View())
 	}
 
 	if m.dialog != nil {
