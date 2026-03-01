@@ -24,6 +24,9 @@ var (
 	// dimStyle renders secondary text like descriptions.
 	dimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
 
+	// defaultTextStyle renders pre-filled defaults in parameter inputs.
+	defaultTextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+
 	// previewBorderStyle wraps the command preview pane.
 	previewBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).

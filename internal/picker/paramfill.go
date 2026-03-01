@@ -25,6 +25,19 @@ type dynamicResultMsg struct {
 // initParamFill prepares the parameter fill state from the selected workflow.
 func initParamFill(m *Model) {
 	m.params = template.ExtractParams(m.selected.Command)
+	// Inline template defaults are authoritative; stored defaults fill gaps.
+	for i, p := range m.params {
+		if p.Default != "" {
+			continue
+		}
+		for _, arg := range m.selected.Args {
+			if arg.Name == p.Name && arg.Default != "" {
+				m.params[i].Default = arg.Default
+				break
+			}
+		}
+	}
+
 	n := len(m.params)
 	m.paramInputs = make([]textinput.Model, n)
 	m.paramTypes = make([]template.ParamType, n)
@@ -68,6 +81,8 @@ func initParamFill(m *Model) {
 		default: // ParamText
 			if p.Default != "" {
 				ti.SetValue(p.Default)
+				ti.TextStyle = defaultTextStyle
+				ti.CursorEnd()
 			}
 		}
 
@@ -177,6 +192,7 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For text params, pass through to textinput
 		var cmd tea.Cmd
 		m.paramInputs[m.focusedParam], cmd = m.paramInputs[m.focusedParam].Update(msg)
+		m.updateFocusedTextStyle()
 		return m, cmd
 
 	case "down":
@@ -194,6 +210,7 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For text params, pass through to textinput
 		var cmd tea.Cmd
 		m.paramInputs[m.focusedParam], cmd = m.paramInputs[m.focusedParam].Update(msg)
+		m.updateFocusedTextStyle()
 		return m, cmd
 
 	case "enter":
@@ -223,8 +240,24 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For text params (and failed dynamic params), normal text input
 		var cmd tea.Cmd
 		m.paramInputs[m.focusedParam], cmd = m.paramInputs[m.focusedParam].Update(msg)
+		m.updateFocusedTextStyle()
 		return m, cmd
 	}
+}
+
+func (m *Model) updateFocusedTextStyle() {
+	if m.focusedParam < 0 || m.focusedParam >= len(m.paramInputs) {
+		return
+	}
+	if m.paramTypes[m.focusedParam] != template.ParamText {
+		return
+	}
+	def := m.params[m.focusedParam].Default
+	if def != "" && m.paramInputs[m.focusedParam].Value() == def {
+		m.paramInputs[m.focusedParam].TextStyle = defaultTextStyle
+		return
+	}
+	m.paramInputs[m.focusedParam].TextStyle = normalStyle
 }
 
 // isListParam returns true if the param at index i has a selectable option list.
