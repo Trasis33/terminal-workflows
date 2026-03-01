@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fredriklanga/wf/internal/store"
+	"github.com/fredriklanga/wf/internal/template"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -484,4 +485,225 @@ func TestSettingsFullFlowThroughRootModel(t *testing.T) {
 	m = updated.(Model)
 	assert.Equal(t, viewBrowse, m.state)
 	assert.Equal(t, "dark", m.theme.Name)
+}
+
+func TestExecuteDialogCreation(t *testing.T) {
+	wf := store.Workflow{Name: "echo", Command: "echo {{msg}} {{name}}"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	assert.Equal(t, phaseParamFill, dlg.phase)
+	assert.Len(t, dlg.params, 2)
+	assert.Len(t, dlg.paramInputs, 2)
+	assert.True(t, dlg.paramInputs[0].Focused())
+}
+
+func TestExecuteDialogZeroParams(t *testing.T) {
+	wf := store.Workflow{Name: "list", Command: "ls -la"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	assert.Equal(t, phaseActionMenu, dlg.phase)
+	assert.Equal(t, "ls -la", dlg.renderedCommand)
+	assert.Contains(t, dlg.View(), "Copy to clipboard")
+	assert.Contains(t, dlg.View(), "ls -la")
+}
+
+func TestExecuteDialogParamFillToActionMenu(t *testing.T) {
+	wf := store.Workflow{Name: "echo", Command: "echo {{msg}}"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}})
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	assert.Equal(t, phaseActionMenu, dlg.phase)
+	assert.Equal(t, "echo hello", dlg.renderedCommand)
+	assert.Contains(t, dlg.View(), "Paste to prompt")
+}
+
+func TestExecuteDialogEscCancelFromParamFill(t *testing.T) {
+	wf := store.Workflow{Name: "echo", Command: "echo {{msg}}"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	_, cmd := dlg.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	assert.NotNil(t, cmd)
+	msg := cmd()
+	res, ok := msg.(dialogResultMsg)
+	assert.True(t, ok)
+	assert.Equal(t, dialogExecute, res.dtype)
+	assert.False(t, res.confirmed)
+}
+
+func TestExecuteDialogEscCancelFromActionMenu(t *testing.T) {
+	wf := store.Workflow{Name: "list", Command: "ls"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	_, cmd := dlg.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	assert.NotNil(t, cmd)
+	res := cmd().(dialogResultMsg)
+	assert.Equal(t, dialogExecute, res.dtype)
+	assert.False(t, res.confirmed)
+}
+
+func TestExecuteDialogCopyAction(t *testing.T) {
+	wf := store.Workflow{Name: "list", Command: "ls"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	_, cmd := dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.NotNil(t, cmd)
+	res := cmd().(dialogResultMsg)
+	assert.True(t, res.confirmed)
+	assert.Equal(t, "copy", res.data["action"])
+	assert.Equal(t, "ls", res.data["command"])
+}
+
+func TestExecuteDialogPasteAction(t *testing.T) {
+	wf := store.Workflow{Name: "list", Command: "ls"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyDown})
+	_, cmd := dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.NotNil(t, cmd)
+	res := cmd().(dialogResultMsg)
+	assert.True(t, res.confirmed)
+	assert.Equal(t, "paste", res.data["action"])
+	assert.Equal(t, "ls", res.data["command"])
+}
+
+func TestExecuteDialogEnumParam(t *testing.T) {
+	wf := store.Workflow{Name: "deploy", Command: "echo {{env|dev|staging|prod}}"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	assert.Equal(t, template.ParamEnum, dlg.paramTypes[0])
+	assert.Equal(t, []string{"dev", "staging", "prod"}, dlg.paramOptions[0])
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyDown})
+	assert.Equal(t, 1, dlg.paramOptionCursor[0])
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.Equal(t, phaseActionMenu, dlg.phase)
+	assert.Equal(t, "echo staging", dlg.renderedCommand)
+}
+
+func TestExecuteDialogTextDefault(t *testing.T) {
+	wf := store.Workflow{Name: "echo", Command: "echo {{name:world}}"}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+
+	assert.Equal(t, "world", dlg.paramInputs[0].Value())
+	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.Equal(t, "echo world", dlg.renderedCommand)
+}
+
+func TestExecuteDialogStoredArgDefault(t *testing.T) {
+	wf := store.Workflow{
+		Name:    "echo",
+		Command: "echo {{name}}",
+		Args: []store.Arg{
+			{Name: "name", Default: "from-arg"},
+		},
+	}
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
+	assert.Equal(t, "from-arg", dlg.paramInputs[0].Value())
+}
+
+func TestEnterKeyOpensExecuteDialog(t *testing.T) {
+	wfs := []store.Workflow{{Name: "test", Command: "echo hi"}}
+	s := &mockStore{workflows: wfs}
+	m := New(s, wfs, DefaultTheme(), "/tmp/test")
+	m.width = 100
+	m.height = 30
+	m.browse.SetDimensions(100, 30)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	assert.NotNil(t, cmd)
+	msg := cmd()
+	_, ok := msg.(showExecuteDialogMsg)
+	assert.True(t, ok)
+}
+
+func TestExecuteDialogOverlayRendering(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/test")
+	m.width = 100
+	m.height = 30
+	dlg := NewExecuteDialog(store.Workflow{Name: "wf", Command: "ls"}, 70, m.theme)
+	m.execDialog = &dlg
+
+	v := m.View()
+	assert.Contains(t, v, "Execute: wf")
+	assert.Contains(t, v, "Copy to clipboard")
+}
+
+func TestDialogExecutePasteResultHandling(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/test")
+	dlg := NewExecuteDialog(store.Workflow{Name: "wf", Command: "ls"}, 70, m.theme)
+	m.execDialog = &dlg
+
+	updated, cmd := m.Update(dialogResultMsg{
+		dtype:     dialogExecute,
+		confirmed: true,
+		data: map[string]string{
+			"action":  "paste",
+			"command": "ls",
+		},
+	})
+	m = updated.(Model)
+
+	assert.Nil(t, m.execDialog)
+	assert.Equal(t, "ls", m.result)
+	assert.NotNil(t, cmd)
+}
+
+func TestDialogExecuteCopyResultHandling(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/test")
+	dlg := NewExecuteDialog(store.Workflow{Name: "wf", Command: "ls"}, 70, m.theme)
+	m.execDialog = &dlg
+
+	updated, _ := m.Update(dialogResultMsg{
+		dtype:     dialogExecute,
+		confirmed: true,
+		data: map[string]string{
+			"action":  "copy",
+			"command": "ls",
+		},
+	})
+	m = updated.(Model)
+
+	assert.Nil(t, m.execDialog)
+	assert.True(t, m.flashMsg == "Copied!" || m.browse.aiError != "")
+}
+
+func TestDialogExecuteCancelResultHandling(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/test")
+	dlg := NewExecuteDialog(store.Workflow{Name: "wf", Command: "ls"}, 70, m.theme)
+	m.execDialog = &dlg
+	m.result = "keep-empty-check"
+
+	updated, _ := m.Update(dialogResultMsg{dtype: dialogExecute, confirmed: false})
+	m = updated.(Model)
+	assert.Nil(t, m.execDialog)
+	assert.Equal(t, "keep-empty-check", m.result)
+}
+
+func TestFlashMessageClears(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "/tmp/test")
+	m.flashMsg = "Copied!"
+	m.browse.flashMsg = "Copied!"
+
+	updated, _ := m.Update(clearFlashMsg{})
+	m = updated.(Model)
+	assert.Empty(t, m.flashMsg)
+	assert.Empty(t, m.browse.flashMsg)
+}
+
+func TestBrowseHintsShowEnterRun(t *testing.T) {
+	b := NewBrowseModel([]store.Workflow{{Name: "wf", Command: "echo hi"}}, nil, nil, DefaultTheme(), defaultKeyMap())
+	b.SetDimensions(100, 30)
+
+	v := b.View()
+	assert.Contains(t, v, "enter run")
 }
