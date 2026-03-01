@@ -28,7 +28,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
 **Milestone Goal:** Improve manage UX with execute flow and parameter CRUD, add list picker variable type, resolve terminal compatibility issues, add syntax highlighting and smarter default handling.
 
 - [x] **Phase 7: Polish & Terminal Compat** - Syntax highlighting, UX fixes, Warp keybinding (completed 2026-02-28)
-- [ ] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults
+- [x] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults (completed 2026-03-01)
 - [ ] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI
 - [ ] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate
 - [ ] **Phase 11: List Picker** - New parameter type with shell command output selection
@@ -60,7 +60,7 @@ Plans:
   2. User filling parameters in the picker sees previous values pre-populated and can accept them with Enter instead of retyping
 **Plans**: 1 plan
 Plans:
-- [ ] 08-01-PLAN.md — Default capture in register + picker pre-fill with dim styling
+- [x] 08-01-PLAN.md — Default capture in register + picker pre-fill with dim styling
 
 ### Phase 9: Execute in Manage
 **Goal**: Users can test and execute workflows without leaving the manage TUI — complete param fill, clipboard copy, or paste-to-prompt
@@ -103,7 +103,7 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 1-6 | v1.0 | 28/28 | Complete | 2026-02-25 |
 | 7. Polish & Terminal Compat | v1.1 | 3/3 | Complete | 2026-02-28 |
-| 8. Smart Defaults | v1.1 | 0/TBD | Not started | - |
+| 8. Smart Defaults | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 9. Execute in Manage | v1.1 | 0/TBD | Not started | - |
 | 10. Parameter CRUD & Per-Field AI | v1.1 | 0/TBD | Not started | - |
 | 11. List Picker | v1.1 | 0/TBD | Not started | - |

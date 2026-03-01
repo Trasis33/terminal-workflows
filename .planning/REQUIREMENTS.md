@@ -9,8 +9,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Defaults
 
-- [ ] **DFLT-01**: User sees original command values preserved as parameter defaults when saving a command as a workflow
-- [ ] **DFLT-02**: User can accept default values in param fill without retyping previously used values
+- [x] **DFLT-01**: User sees original command values preserved as parameter defaults when saving a command as a workflow
+- [x] **DFLT-02**: User can accept default values in param fill without retyping previously used values
 
 ### Manage Execute
 
@@ -101,8 +101,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DFLT-01 | Phase 8 | Pending |
-| DFLT-02 | Phase 8 | Pending |
+| DFLT-01 | Phase 8 | Complete |
+| DFLT-02 | Phase 8 | Complete |
 | EXEC-01 | Phase 9 | Pending |
 | EXEC-02 | Phase 9 | Pending |
 | EXEC-03 | Phase 9 | Pending |
@@ -135,4 +135,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-28 after phase 7 completion*
+*Last updated: 2026-03-01 after phase 8 completion*
