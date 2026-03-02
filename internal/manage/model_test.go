@@ -595,14 +595,14 @@ func TestExecuteDialogTextDefault(t *testing.T) {
 	assert.Equal(t, "echo world", dlg.renderedCommand)
 }
 
-func TestExecuteDialogPreviewHasStableHeightAndTruncates(t *testing.T) {
+func TestExecuteDialogPreviewUsesBoundedMultilineRows(t *testing.T) {
 	wf := store.Workflow{Name: "echo", Command: "echo {{msg}}"}
-	dlg := NewExecuteDialog(wf, 60, DefaultTheme())
+	dlg := NewExecuteDialog(wf, 70, DefaultTheme())
 
 	shortView := dlg.viewParamFill()
 	shortLines := strings.Count(shortView, "\n")
 
-	longInput := strings.Repeat("x", 120)
+	longInput := strings.Repeat("x", 220)
 	for _, ch := range longInput {
 		dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
 	}
@@ -610,6 +610,7 @@ func TestExecuteDialogPreviewHasStableHeightAndTruncates(t *testing.T) {
 	longLines := strings.Count(longView, "\n")
 
 	assert.Equal(t, shortLines, longLines)
+	assert.Contains(t, longView, "xx")
 	assert.Contains(t, longView, "…")
 }
 

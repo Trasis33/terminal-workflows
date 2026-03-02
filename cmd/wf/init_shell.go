@@ -27,6 +27,7 @@ var initCmd = &cobra.Command{
 		}
 
 		var keyStr string
+		var manageKeyStr string
 		tpl, err := templateForShell(shellName)
 		if err != nil {
 			return err
@@ -35,19 +36,24 @@ var initCmd = &cobra.Command{
 		switch shellName {
 		case "zsh":
 			keyStr = key.ForZsh()
+			manageKeyStr = shell.ManageKey.ForZsh()
 		case "bash":
 			keyStr = key.ForBash()
+			manageKeyStr = shell.ManageKey.ForBash()
 		case "fish":
 			keyStr = key.ForFish()
+			manageKeyStr = shell.ManageKey.ForFish()
 		case "powershell":
 			keyStr = key.ForPowerShell()
+			manageKeyStr = shell.ManageKey.ForPowerShell()
 		default:
 			return fmt.Errorf("unsupported shell: %s. Supported: zsh, bash, fish, powershell", shellName)
 		}
 
 		data := shell.TemplateData{
-			Key:     keyStr,
-			Comment: fmt.Sprintf("# Keybinding: %s\n# Change with: wf init %s --key ctrl+<letter>", key.String(), shellName),
+			Key:       keyStr,
+			ManageKey: manageKeyStr,
+			Comment:   fmt.Sprintf("# Picker keybinding: %s\n# Manage keybinding: %s\n# Change picker key with: wf init %s --key ctrl+<letter>", key.String(), shell.ManageKey.String(), shellName),
 		}
 
 		var out bytes.Buffer

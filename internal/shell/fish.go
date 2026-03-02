@@ -17,6 +17,16 @@ end
 bind {{.Key}} _wf_picker
 bind -M insert {{.Key}} _wf_picker
 
+function _wf_manage
+  set -l output (wf manage | string collect)
+  if test -n "$output"
+    commandline -r $output
+  end
+  commandline -f repaint
+end
+bind {{.ManageKey}} _wf_manage
+bind -M insert {{.ManageKey}} _wf_manage
+
 function _wf_postexec --on-event fish_postexec
   set -l _wf_dir (test -n "$XDG_DATA_HOME" && echo "$XDG_DATA_HOME" || echo "$HOME/.local/share")"/wf"
   mkdir -p "$_wf_dir"

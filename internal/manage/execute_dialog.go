@@ -18,6 +18,7 @@ import (
 
 const dialogExecute dialogType = 11
 const executePreviewMinRows = 4
+const executePreviewMaxCommandRows = 3
 
 type executePhase int
 
@@ -477,14 +478,53 @@ func (d ExecuteDialogModel) renderPreview() string {
 	if commandWidth < 20 {
 		commandWidth = 20
 	}
-	command = truncateWithEllipsis(command, commandWidth)
-	line := "  " + s.Dim.Render(command)
+	lines := wrapPreviewCommand(command, commandWidth, executePreviewMaxCommandRows)
 
-	rows := []string{label, line}
+	rows := []string{label}
+	for _, line := range lines {
+		rows = append(rows, "  "+s.Dim.Render(line))
+	}
 	for len(rows) < executePreviewMinRows {
 		rows = append(rows, "")
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func wrapPreviewCommand(command string, width, maxLines int) []string {
+	if maxLines <= 0 {
+		return []string{""}
+	}
+
+	runes := []rune(command)
+	if len(runes) == 0 {
+		return []string{""}
+	}
+
+	if width <= 0 {
+		width = 1
+	}
+
+	lines := make([]string, 0, maxLines)
+	for len(runes) > 0 && len(lines) < maxLines {
+		take := width
+		if len(runes) < take {
+			take = len(runes)
+		}
+		line := string(runes[:take])
+		runes = runes[take:]
+
+		if len(runes) > 0 && len(lines) == maxLines-1 {
+			if width <= 1 {
+				line = "…"
+			} else {
+				line = string([]rune(line)[:width-1]) + "…"
+			}
+			runes = nil
+		}
+		lines = append(lines, line)
+	}
+
+	return lines
 }
 
 func truncateWithEllipsis(s string, maxLen int) string {

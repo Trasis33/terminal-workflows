@@ -18,6 +18,17 @@ _wf_picker() {
 bind -m emacs-standard -x '"{{.Key}}": _wf_picker'
 bind -m vi-insert -x '"{{.Key}}": _wf_picker'
 
+_wf_manage() {
+  local output
+  output=$(wf manage)
+  if [[ -n "$output" ]]; then
+    READLINE_LINE="$output"
+    READLINE_POINT=${#READLINE_LINE}
+  fi
+}
+bind -m emacs-standard -x '"{{.ManageKey}}": _wf_manage'
+bind -m vi-insert -x '"{{.ManageKey}}": _wf_manage'
+
 _wf_precmd() {
   local _wf_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wf"
   [[ -d "$_wf_dir" ]] || mkdir -p "$_wf_dir"

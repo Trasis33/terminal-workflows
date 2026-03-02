@@ -15,6 +15,7 @@ type Keybinding struct {
 var (
 	DefaultKey     = Keybinding{Modifier: "ctrl", Letter: "g"}
 	WarpDefaultKey = Keybinding{Modifier: "ctrl", Letter: "o"}
+	ManageKey      = Keybinding{Modifier: "alt", Letter: "m"}
 )
 
 // ParseKey parses values like ctrl+g or alt+f (case-insensitive).
@@ -93,8 +94,9 @@ func (k Keybinding) ForPowerShell() string {
 
 // TemplateData is passed to shell script templates.
 type TemplateData struct {
-	Key     string
-	Comment string
+	Key       string
+	ManageKey string
+	Comment   string
 }
 
 func DetectWarp() bool {

@@ -23,6 +23,22 @@ bindkey -M emacs '{{.Key}}' _wf_picker
 bindkey -M viins '{{.Key}}' _wf_picker
 bindkey -M vicmd '{{.Key}}' _wf_picker
 
+_wf_manage() {
+  local output
+  output=$(wf manage)
+  local ret=$?
+  if [[ -n "$output" ]]; then
+    LBUFFER="$output"
+    RBUFFER=""
+  fi
+  zle reset-prompt
+  return $ret
+}
+zle -N _wf_manage
+bindkey -M emacs '{{.ManageKey}}' _wf_manage
+bindkey -M viins '{{.ManageKey}}' _wf_manage
+bindkey -M vicmd '{{.ManageKey}}' _wf_manage
+
 _wf_precmd() {
   local _wf_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wf"
   [[ -d "$_wf_dir" ]] || mkdir -p "$_wf_dir"

@@ -15,4 +15,12 @@ Set-PSReadLineKeyHandler -Chord '{{.Key}}' -ScriptBlock {
         [Microsoft.PowerShell.PSConsoleReadLine]::Insert($output)
     }
 }
+
+Set-PSReadLineKeyHandler -Chord '{{.ManageKey}}' -ScriptBlock {
+    [Microsoft.PowerShell.PSConsoleReadLine]::RevertLine()
+    $output = wf manage 2>$null
+    if ($output) {
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert($output)
+    }
+}
 `))
