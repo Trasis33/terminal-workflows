@@ -29,7 +29,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
 
 - [x] **Phase 7: Polish & Terminal Compat** - Syntax highlighting, UX fixes, Warp keybinding (completed 2026-02-28)
 - [x] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults (completed 2026-03-01)
-- [ ] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI
+- [x] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI (completed 2026-03-02)
 - [ ] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate
 - [ ] **Phase 11: List Picker** - New parameter type with shell command output selection
 
@@ -73,8 +73,8 @@ Plans:
   4. User completing param fill in manage can choose to exit manage and have the completed command pasted to their shell prompt
 **Plans**: 2 plans
 Plans:
-- [ ] 09-01-PLAN.md — ExecuteDialogModel with param fill + action menu, manage return path for paste-to-prompt
-- [ ] 09-02-PLAN.md — Browse integration (Enter key trigger), clipboard copy, flash messages, tests, human verify
+- [x] 09-01-PLAN.md — ExecuteDialogModel with param fill + action menu, manage return path for paste-to-prompt
+- [x] 09-02-PLAN.md — Browse integration (Enter key trigger), clipboard copy, flash messages, tests, human verify
 
 ### Phase 10: Parameter CRUD & Per-Field AI
 **Goal**: Users can fully manage parameters on existing workflows from within the manage TUI — add, remove, rename, change types, edit metadata — and use AI to generate individual field values
