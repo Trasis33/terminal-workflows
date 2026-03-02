@@ -17,6 +17,7 @@ import (
 )
 
 const dialogExecute dialogType = 11
+const executePreviewMinRows = 4
 
 type executePhase int
 
@@ -397,7 +398,7 @@ func (d ExecuteDialogModel) View() string {
 
 func (d ExecuteDialogModel) viewParamFill() string {
 	s := d.theme.Styles()
-	preview := s.Dim.Render(d.liveRender())
+	preview := d.renderPreview()
 
 	var rows []string
 	rows = append(rows, preview, "")
@@ -465,6 +466,36 @@ func (d ExecuteDialogModel) viewParamFill() string {
 
 	rows = append(rows, "", s.Dim.Render("[tab] next  [shift+tab] prev  [up/down] select  [enter] submit  [esc] cancel"))
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (d ExecuteDialogModel) renderPreview() string {
+	s := d.theme.Styles()
+	label := s.Dim.Render("Command preview")
+	command := d.liveRender()
+	command = strings.ReplaceAll(command, "\n", " ")
+	commandWidth := d.width - 10
+	if commandWidth < 20 {
+		commandWidth = 20
+	}
+	command = truncateWithEllipsis(command, commandWidth)
+	line := "  " + s.Dim.Render(command)
+
+	rows := []string{label, line}
+	for len(rows) < executePreviewMinRows {
+		rows = append(rows, "")
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func truncateWithEllipsis(s string, maxLen int) string {
+	r := []rune(s)
+	if len(r) <= maxLen {
+		return s
+	}
+	if maxLen <= 1 {
+		return "…"
+	}
+	return string(r[:maxLen-1]) + "…"
 }
 
 func (d ExecuteDialogModel) viewActionMenu() string {

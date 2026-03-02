@@ -2,6 +2,7 @@ package manage
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -592,6 +593,24 @@ func TestExecuteDialogTextDefault(t *testing.T) {
 	assert.Equal(t, "world", dlg.paramInputs[0].Value())
 	dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	assert.Equal(t, "echo world", dlg.renderedCommand)
+}
+
+func TestExecuteDialogPreviewHasStableHeightAndTruncates(t *testing.T) {
+	wf := store.Workflow{Name: "echo", Command: "echo {{msg}}"}
+	dlg := NewExecuteDialog(wf, 60, DefaultTheme())
+
+	shortView := dlg.viewParamFill()
+	shortLines := strings.Count(shortView, "\n")
+
+	longInput := strings.Repeat("x", 120)
+	for _, ch := range longInput {
+		dlg, _ = dlg.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+	}
+	longView := dlg.viewParamFill()
+	longLines := strings.Count(longView, "\n")
+
+	assert.Equal(t, shortLines, longLines)
+	assert.Contains(t, longView, "…")
 }
 
 func TestExecuteDialogStoredArgDefault(t *testing.T) {

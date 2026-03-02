@@ -39,7 +39,13 @@ func Run(s store.Store) (string, error) {
 	}
 
 	m := New(s, workflows, theme, cfgDir)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	programOptions := []tea.ProgramOption{tea.WithAltScreen()}
+	tty, ttyErr := openTTY()
+	if ttyErr == nil {
+		defer tty.Close()
+		programOptions = append(programOptions, tea.WithOutput(tty))
+	}
+	p := tea.NewProgram(m, programOptions...)
 	final, err := p.Run()
 	if err != nil {
 		return "", err
