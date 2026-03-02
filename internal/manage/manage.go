@@ -33,6 +33,15 @@ func Run(s store.Store) (string, error) {
 	}
 
 	cfgDir := config.ConfigDir()
+	ttyOut, ttyOutErr := openTTY()
+	if ttyOutErr == nil {
+		defer ttyOut.Close()
+		lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(ttyOut))
+	}
+	ttyIn, ttyInErr := openTTYInput()
+	if ttyInErr == nil {
+		defer ttyIn.Close()
+	}
 
 	theme, err := LoadTheme(cfgDir)
 	if err != nil {
@@ -41,15 +50,10 @@ func Run(s store.Store) (string, error) {
 
 	m := New(s, workflows, theme, cfgDir)
 	programOptions := []tea.ProgramOption{tea.WithAltScreen()}
-	ttyOut, ttyOutErr := openTTY()
 	if ttyOutErr == nil {
-		defer ttyOut.Close()
-		lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(ttyOut))
 		programOptions = append(programOptions, tea.WithOutput(ttyOut))
 	}
-	ttyIn, ttyInErr := openTTYInput()
 	if ttyInErr == nil {
-		defer ttyIn.Close()
 		programOptions = append(programOptions, tea.WithInput(ttyIn))
 	}
 	p := tea.NewProgram(m, programOptions...)
