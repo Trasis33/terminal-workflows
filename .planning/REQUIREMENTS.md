@@ -14,10 +14,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Manage Execute
 
-- [ ] **EXEC-01**: User can trigger execute flow on a workflow from the manage browse view
-- [ ] **EXEC-02**: User can fill parameters inline within manage TUI (same UX as picker)
-- [ ] **EXEC-03**: User can copy completed command to clipboard from manage and stay in manage
-- [ ] **EXEC-04**: User can paste completed command to prompt by exiting manage after param fill
+- [x] **EXEC-01**: User can trigger execute flow on a workflow from the manage browse view
+- [x] **EXEC-02**: User can fill parameters inline within manage TUI (same UX as picker)
+- [x] **EXEC-03**: User can copy completed command to clipboard from manage and stay in manage
+- [x] **EXEC-04**: User can paste completed command to prompt by exiting manage after param fill
 
 ### Parameter CRUD
 
@@ -103,10 +103,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | DFLT-01 | Phase 8 | Complete |
 | DFLT-02 | Phase 8 | Complete |
-| EXEC-01 | Phase 9 | Pending |
-| EXEC-02 | Phase 9 | Pending |
-| EXEC-03 | Phase 9 | Pending |
-| EXEC-04 | Phase 9 | Pending |
+| EXEC-01 | Phase 9 | Complete |
+| EXEC-02 | Phase 9 | Complete |
+| EXEC-03 | Phase 9 | Complete |
+| EXEC-04 | Phase 9 | Complete |
 | PCRD-01 | Phase 10 | Pending |
 | PCRD-02 | Phase 10 | Pending |
 | PCRD-03 | Phase 10 | Pending |
