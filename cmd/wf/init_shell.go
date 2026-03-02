@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"text/template"
 
 	"github.com/fredriklanga/wf/internal/shell"
@@ -51,9 +52,10 @@ var initCmd = &cobra.Command{
 		}
 
 		data := shell.TemplateData{
-			Key:       keyStr,
-			ManageKey: manageKeyStr,
-			Comment:   fmt.Sprintf("# Picker keybinding: %s\n# Manage keybinding: %s\n# Change picker key with: wf init %s --key ctrl+<letter>", key.String(), shell.ManageKey.String(), shellName),
+			Key:                 keyStr,
+			ManageKey:           manageKeyStr,
+			ManageFallbackUsage: "wfm",
+			Comment:             initComment(shellName, key),
 		}
 
 		var out bytes.Buffer
@@ -102,4 +104,16 @@ func resolveKeybinding(flagValue string) (shell.Keybinding, error) {
 	}
 
 	return shell.DefaultKey, nil
+}
+
+func initComment(shellName string, key shell.Keybinding) string {
+	lines := []string{
+		fmt.Sprintf("# Picker keybinding: %s", key.String()),
+		fmt.Sprintf("# Manage keybinding: %s", shell.ManageKey.String()),
+		fmt.Sprintf("# Change picker key with: wf init %s --key ctrl+<letter>", shellName),
+	}
+	if shellName == "zsh" {
+		lines = append(lines, "# Fallback manage command (no Alt/Meta needed): wfm")
+	}
+	return strings.Join(lines, "\n")
 }

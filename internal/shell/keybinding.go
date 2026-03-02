@@ -94,9 +94,10 @@ func (k Keybinding) ForPowerShell() string {
 
 // TemplateData is passed to shell script templates.
 type TemplateData struct {
-	Key       string
-	ManageKey string
-	Comment   string
+	Key                 string
+	ManageKey           string
+	ManageFallbackUsage string
+	Comment             string
 }
 
 func DetectWarp() bool {

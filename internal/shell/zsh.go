@@ -39,6 +39,18 @@ bindkey -M emacs '{{.ManageKey}}' _wf_manage
 bindkey -M viins '{{.ManageKey}}' _wf_manage
 bindkey -M vicmd '{{.ManageKey}}' _wf_manage
 
+# Fallback command for terminals that don't pass Alt/Meta reliably.
+# Usage: {{.ManageFallbackUsage}}
+wfm() {
+  local output
+  output=$(wf manage)
+  local ret=$?
+  if [[ -n "$output" ]]; then
+    print -z -- "$output"
+  fi
+  return $ret
+}
+
 _wf_precmd() {
   local _wf_dir="${XDG_DATA_HOME:-$HOME/.local/share}/wf"
   [[ -d "$_wf_dir" ]] || mkdir -p "$_wf_dir"
