@@ -2,6 +2,7 @@ package manage
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/fredriklanga/wf/internal/config"
 	"github.com/fredriklanga/wf/internal/store"
 )
@@ -40,10 +41,16 @@ func Run(s store.Store) (string, error) {
 
 	m := New(s, workflows, theme, cfgDir)
 	programOptions := []tea.ProgramOption{tea.WithAltScreen()}
-	tty, ttyErr := openTTY()
-	if ttyErr == nil {
-		defer tty.Close()
-		programOptions = append(programOptions, tea.WithOutput(tty))
+	ttyOut, ttyOutErr := openTTY()
+	if ttyOutErr == nil {
+		defer ttyOut.Close()
+		lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(ttyOut))
+		programOptions = append(programOptions, tea.WithOutput(ttyOut))
+	}
+	ttyIn, ttyInErr := openTTYInput()
+	if ttyInErr == nil {
+		defer ttyIn.Close()
+		programOptions = append(programOptions, tea.WithInput(ttyIn))
 	}
 	p := tea.NewProgram(m, programOptions...)
 	final, err := p.Run()
