@@ -2,6 +2,7 @@ package manage
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/fredriklanga/wf/internal/ai"
 	"github.com/fredriklanga/wf/internal/store"
 )
 
@@ -40,8 +42,9 @@ const (
 	fieldCommand
 	fieldTags
 	fieldFolder
-	fieldParams // the param editor section
-	fieldCount  // sentinel — total number of focusable fields
+	fieldAutofill // the autofill button
+	fieldParams   // the param editor section
+	fieldCount    // sentinel — total number of focusable fields
 )
 
 // FormModel manages a full-screen custom form for creating or editing a workflow.
@@ -77,6 +80,15 @@ type FormModel struct {
 	existingTags    []string
 	existingFolders []string
 
+	// Per-field AI ghost text suggestions (field name → suggested value).
+	ghostText map[string]string
+
+	// Per-field loading state (field name → loading).
+	fieldLoading map[string]bool
+
+	// Autofill lock: when true, the form is locked during bulk autofill.
+	autofillLock bool
+
 	// Error state for display.
 	err error
 }
@@ -96,6 +108,8 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 		vals:            &formValues{},
 		existingTags:    existingTags,
 		existingFolders: existingFolders,
+		ghostText:       make(map[string]string),
+		fieldLoading:    make(map[string]bool),
 	}
 
 	var args []store.Arg
@@ -171,7 +185,20 @@ func (m FormModel) Init() tea.Cmd {
 func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// During autofill lock, only Esc is allowed (to cancel).
+		if m.autofillLock {
+			if msg.String() == "esc" {
+				m.autofillLock = false
+				m.fieldLoading = make(map[string]bool)
+				return m, nil
+			}
+			return m, nil
+		}
 		return m.handleKey(msg)
+	case perFieldAIResultMsg:
+		return m.handlePerFieldAIResult(msg)
+	case suggestParamsResultMsg:
+		return m.handleSuggestParamsResult(msg)
 	case paramRenamedMsg:
 		// Live command template preview: update {{oldName...}} to {{newName...}} in command textarea.
 		m.updateCommandTemplateOnRename(msg.OldName, msg.NewName)
@@ -191,6 +218,13 @@ func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
 
 	// Esc returns to browse — but only if the param editor isn't in editing mode.
 	if key == "esc" {
+		// Clear ghost text on the focused field if present.
+		fieldKey := m.fieldKey(m.focused)
+		if _, hasGhost := m.ghostText[fieldKey]; hasGhost {
+			delete(m.ghostText, fieldKey)
+			return m, nil
+		}
+
 		if m.focused == fieldParams && m.paramEditor.Focused() {
 			// Let the param editor handle esc (cancel name edit).
 			var cmd tea.Cmd
@@ -204,6 +238,21 @@ func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
 			return m, cmd
 		}
 		return m, func() tea.Msg { return switchToBrowseMsg{} }
+	}
+
+	// Enter on a field with ghost text accepts the suggestion.
+	if key == "enter" && m.focused != fieldAutofill && m.focused != fieldParams {
+		fieldKey := m.fieldKey(m.focused)
+		if suggestion, hasGhost := m.ghostText[fieldKey]; hasGhost {
+			m.applyGhostText(m.focused, suggestion)
+			delete(m.ghostText, fieldKey)
+			return m, nil
+		}
+	}
+
+	// Ctrl+G triggers per-field AI generation.
+	if key == "ctrl+g" {
+		return m.triggerPerFieldAI()
 	}
 
 	// Ctrl+S saves the workflow.
@@ -231,6 +280,12 @@ func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Any typing clears ghost text for the focused field.
+	if len(key) == 1 || key == "backspace" || key == "delete" {
+		fieldKey := m.fieldKey(m.focused)
+		delete(m.ghostText, fieldKey)
+	}
+
 	// Tab / Shift+Tab navigation between fields.
 	if key == "tab" && m.focused != fieldCommand {
 		// In param editor, tab might be handled internally.
@@ -246,6 +301,7 @@ func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
 			m.focusCurrentField()
 			return m, textinput.Blink
 		}
+		// Autofill button is just a focus target — tab past it.
 		m.focused++
 		m.focusCurrentField()
 		if m.focused == fieldCommand {
@@ -282,6 +338,15 @@ func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
 		m.focused = fieldDescription
 		m.focusCurrentField()
 		return m, textinput.Blink
+	}
+
+	// Autofill button: Enter triggers autofill.
+	if m.focused == fieldAutofill {
+		if key == "enter" {
+			return m.triggerAutofill()
+		}
+		// Autofill button doesn't consume other keys.
+		return m, nil
 	}
 
 	// Route to param editor if focused.
@@ -337,6 +402,8 @@ func (m *FormModel) focusCurrentField() {
 		m.tagsInput.Focus()
 	case fieldFolder:
 		m.folderInput.Focus()
+	case fieldAutofill:
+		// autofill button doesn't need explicit focus call
 	case fieldParams:
 		// param editor doesn't need explicit focus call
 	}
@@ -424,34 +491,55 @@ func (m FormModel) View() string {
 	focusLabelStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.Colors.Primary)).
 		Bold(true)
+	ghostStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Dim)).Italic(true)
+	loadingStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("49"))
 	sectionDivider := labelStyle.Render("── Parameters ──")
 
 	// Build field rows.
 	var rows []string
 	rows = append(rows, "", title)
 
+	// Helper to render field AI indicator.
+	aiIndicator := func(fieldKey string) string {
+		if m.fieldLoading[fieldKey] {
+			return loadingStyle.Render(" ⣾")
+		}
+		if ai.IsAvailable() && m.focused == m.fieldIndexForKey(fieldKey) {
+			return labelStyle.Render(" ⚡AI")
+		}
+		return ""
+	}
+
+	// Helper to render ghost text suffix.
+	ghostSuffix := func(fieldKey string) string {
+		if ghost, ok := m.ghostText[fieldKey]; ok && ghost != "" {
+			return "  " + ghostStyle.Render(ghost)
+		}
+		return ""
+	}
+
 	// Name.
 	lbl := labelStyle
 	if m.focused == fieldName {
 		lbl = focusLabelStyle
 	}
-	rows = append(rows, lbl.Render("  Name"))
-	rows = append(rows, "  "+m.nameInput.View())
+	rows = append(rows, lbl.Render("  Name")+aiIndicator("name"))
+	rows = append(rows, "  "+m.nameInput.View()+ghostSuffix("name"))
 
 	// Description.
 	lbl = labelStyle
 	if m.focused == fieldDescription {
 		lbl = focusLabelStyle
 	}
-	rows = append(rows, lbl.Render("  Description"))
-	rows = append(rows, "  "+m.descInput.View())
+	rows = append(rows, lbl.Render("  Description")+aiIndicator("description"))
+	rows = append(rows, "  "+m.descInput.View()+ghostSuffix("description"))
 
 	// Command.
 	lbl = labelStyle
 	if m.focused == fieldCommand {
 		lbl = focusLabelStyle
 	}
-	rows = append(rows, lbl.Render("  Command"))
+	rows = append(rows, lbl.Render("  Command")+aiIndicator("command"))
 	rows = append(rows, "  "+m.cmdInput.View())
 
 	// Tags.
@@ -459,8 +547,8 @@ func (m FormModel) View() string {
 	if m.focused == fieldTags {
 		lbl = focusLabelStyle
 	}
-	rows = append(rows, lbl.Render("  Tags (comma-separated)"))
-	rows = append(rows, "  "+m.tagsInput.View())
+	rows = append(rows, lbl.Render("  Tags (comma-separated)")+aiIndicator("tags"))
+	rows = append(rows, "  "+m.tagsInput.View()+ghostSuffix("tags"))
 
 	// Folder.
 	lbl = labelStyle
@@ -469,6 +557,18 @@ func (m FormModel) View() string {
 	}
 	rows = append(rows, lbl.Render("  Folder"))
 	rows = append(rows, "  "+m.folderInput.View())
+
+	// Autofill button.
+	rows = append(rows, "")
+	if m.autofillLock {
+		rows = append(rows, loadingStyle.Render("  ⣾ Autofilling...  ")+labelStyle.Render("esc to cancel"))
+	} else if m.focused == fieldAutofill {
+		autofillBtn := focusLabelStyle.Render("  [ ⚡ Autofill Empty Fields ]")
+		rows = append(rows, autofillBtn)
+	} else {
+		autofillBtn := labelStyle.Render("  [ ⚡ Autofill Empty Fields ]")
+		rows = append(rows, autofillBtn)
+	}
 
 	// Parameter section.
 	rows = append(rows, "")
@@ -488,9 +588,13 @@ func (m FormModel) View() string {
 	}
 
 	// Hints.
+	hintText := "  esc cancel  tab next  ctrl+s save  ctrl+n new param  ctrl+d delete param"
+	if ai.IsAvailable() {
+		hintText += "  ctrl+g AI suggest"
+	}
 	hints := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.Colors.Dim)).
-		Render("  esc cancel  tab next  ctrl+s save  ctrl+n new param  ctrl+d delete param")
+		Render(hintText)
 
 	rows = append(rows, "", hints)
 
@@ -572,4 +676,271 @@ func parseTags(s string) []string {
 		return nil
 	}
 	return tags
+}
+
+// --- Per-field AI helpers ---
+
+// fieldKey returns a string key for the given field index (used for ghostText and fieldLoading maps).
+func (m FormModel) fieldKey(f formFieldIndex) string {
+	switch f {
+	case fieldName:
+		return "name"
+	case fieldDescription:
+		return "description"
+	case fieldCommand:
+		return "command"
+	case fieldTags:
+		return "tags"
+	case fieldFolder:
+		return "folder"
+	default:
+		return ""
+	}
+}
+
+// fieldIndexForKey returns the formFieldIndex for a given field key string.
+func (m FormModel) fieldIndexForKey(key string) formFieldIndex {
+	switch key {
+	case "name":
+		return fieldName
+	case "description":
+		return fieldDescription
+	case "command":
+		return fieldCommand
+	case "tags":
+		return fieldTags
+	case "folder":
+		return fieldFolder
+	default:
+		return fieldCount
+	}
+}
+
+// formSnapshot captures the current values of all form fields as a context map for AI.
+func (m FormModel) formSnapshot() map[string]string {
+	snap := map[string]string{
+		"name":        m.vals.name,
+		"description": m.vals.description,
+		"command":     m.vals.command,
+		"tags":        m.vals.tagInput,
+		"folder":      m.vals.folder,
+	}
+	return snap
+}
+
+// hasSeedField returns true if at least one seed field (name, description, command) has content.
+func (m FormModel) hasSeedField() bool {
+	return strings.TrimSpace(m.vals.name) != "" ||
+		strings.TrimSpace(m.vals.description) != "" ||
+		strings.TrimSpace(m.vals.command) != ""
+}
+
+// triggerPerFieldAI initiates per-field AI generation for the currently focused field.
+func (m FormModel) triggerPerFieldAI() (FormModel, tea.Cmd) {
+	if !ai.IsAvailable() {
+		m.err = fmt.Errorf("AI unavailable: %s", ai.ErrUnavailable.Error())
+		return m, nil
+	}
+
+	if !m.hasSeedField() {
+		m.err = fmt.Errorf("add a title, description, or command first")
+		return m, nil
+	}
+
+	// Determine the field to generate.
+	var targetField string
+	switch m.focused {
+	case fieldName:
+		targetField = "name"
+	case fieldDescription:
+		targetField = "description"
+	case fieldCommand:
+		targetField = "command"
+	case fieldTags:
+		targetField = "tags"
+	case fieldParams:
+		// Delegate to param editor Ctrl+G handling.
+		return m.triggerParamFieldAI()
+	default:
+		return m, nil
+	}
+
+	m.err = nil
+	m.fieldLoading[targetField] = true
+	snap := m.formSnapshot()
+	return m, perFieldAICmd(targetField, snap)
+}
+
+// triggerParamFieldAI initiates per-field AI generation for the focused param sub-field.
+func (m FormModel) triggerParamFieldAI() (FormModel, tea.Cmd) {
+	if !m.paramEditor.editing || m.paramEditor.cursor < 0 || m.paramEditor.cursor >= len(m.paramEditor.params) {
+		return m, nil
+	}
+
+	p := m.paramEditor.params[m.paramEditor.cursor]
+	idx := m.paramEditor.cursor
+
+	var subField string
+	switch p.focusedField {
+	case subFieldDefault:
+		subField = "default"
+	case subFieldOptions:
+		subField = "options"
+	case subFieldDynamicCmd:
+		subField = "dynamic_cmd"
+	default:
+		return m, nil
+	}
+
+	fieldKey := fmt.Sprintf("param:%d:%s", idx, subField)
+	m.fieldLoading[fieldKey] = true
+
+	snap := m.formSnapshot()
+	snap["param_name"] = p.name
+	snap["param_type"] = p.paramType
+
+	return m, perFieldAICmd(fieldKey, snap)
+}
+
+// triggerAutofill initiates bulk AI autofill for all empty fields.
+func (m FormModel) triggerAutofill() (FormModel, tea.Cmd) {
+	if !ai.IsAvailable() {
+		m.err = fmt.Errorf("AI unavailable: %s", ai.ErrUnavailable.Error())
+		return m, nil
+	}
+
+	if !m.hasSeedField() {
+		m.err = fmt.Errorf("add a title, description, or command first")
+		return m, nil
+	}
+
+	m.err = nil
+	m.autofillLock = true
+
+	// Determine which fields are empty and need filling.
+	var fields []string
+	if strings.TrimSpace(m.vals.name) == "" {
+		fields = append(fields, "name")
+		m.fieldLoading["name"] = true
+	}
+	if strings.TrimSpace(m.vals.description) == "" {
+		fields = append(fields, "description")
+		m.fieldLoading["description"] = true
+	}
+	if strings.TrimSpace(m.vals.tagInput) == "" {
+		fields = append(fields, "tags")
+		m.fieldLoading["tags"] = true
+	}
+	// Always include args for param suggestions.
+	fields = append(fields, "args")
+
+	if len(fields) == 0 {
+		m.autofillLock = false
+		return m, nil
+	}
+
+	// Build the workflow from current state for autofill.
+	wf := store.Workflow{
+		Name:        m.vals.name,
+		Command:     m.vals.command,
+		Description: m.vals.description,
+		Tags:        parseTags(m.vals.tagInput),
+		Args:        m.paramEditor.ToArgs(),
+	}
+	if folder := strings.TrimSpace(m.vals.folder); folder != "" {
+		wf.Name = folder + "/" + wf.Name
+	}
+
+	return m, autofillWorkflowCmd(wf, fields)
+}
+
+// applyGhostText sets a field value from a ghost text suggestion.
+func (m *FormModel) applyGhostText(field formFieldIndex, value string) {
+	switch field {
+	case fieldName:
+		m.vals.name = value
+		m.nameInput.SetValue(value)
+	case fieldDescription:
+		m.vals.description = value
+		m.descInput.SetValue(value)
+	case fieldCommand:
+		m.vals.command = value
+		m.cmdInput.SetValue(value)
+	case fieldTags:
+		m.vals.tagInput = value
+		m.tagsInput.SetValue(value)
+	}
+}
+
+// handlePerFieldAIResult processes the result of a per-field AI generation.
+func (m FormModel) handlePerFieldAIResult(msg perFieldAIResultMsg) (FormModel, tea.Cmd) {
+	// Clear loading state for this field.
+	delete(m.fieldLoading, msg.fieldName)
+
+	if msg.err != nil {
+		m.err = fmt.Errorf("AI: %s", msg.err.Error())
+		return m, nil
+	}
+
+	if msg.value == "" {
+		return m, nil
+	}
+
+	// Check if this is a param-level field.
+	if strings.HasPrefix(msg.fieldName, "param:") {
+		// Route to param editor ghost text.
+		m.paramEditor.setGhostText(msg.fieldName, msg.value)
+		return m, nil
+	}
+
+	// Store as ghost text for the user to accept/dismiss.
+	m.ghostText[msg.fieldName] = msg.value
+	return m, nil
+}
+
+// handleSuggestParamsResult processes command-to-params AI analysis results.
+func (m FormModel) handleSuggestParamsResult(msg suggestParamsResultMsg) (FormModel, tea.Cmd) {
+	if msg.err != nil {
+		m.err = fmt.Errorf("AI param suggestion: %s", msg.err.Error())
+		return m, nil
+	}
+
+	if len(msg.args) == 0 {
+		return m, nil
+	}
+
+	// Add suggested params as ghost entries in the param editor.
+	for _, arg := range msg.args {
+		m.paramEditor.addGhostParam(arg)
+	}
+	return m, nil
+}
+
+// HandleAutofillResult processes autofill results in the form context.
+// Called from model.go when an aiAutofillResultMsg arrives while in form view.
+func (m FormModel) HandleAutofillResult(result *ai.AutofillResult) FormModel {
+	m.autofillLock = false
+	m.fieldLoading = make(map[string]bool)
+
+	if result == nil {
+		return m
+	}
+
+	// Apply results as ghost text for each field.
+	if result.Name != nil && strings.TrimSpace(*result.Name) != "" && strings.TrimSpace(m.vals.name) == "" {
+		m.ghostText["name"] = *result.Name
+	}
+	if result.Description != nil && strings.TrimSpace(*result.Description) != "" && strings.TrimSpace(m.vals.description) == "" {
+		m.ghostText["description"] = *result.Description
+	}
+	if len(result.Tags) > 0 && strings.TrimSpace(m.vals.tagInput) == "" {
+		m.ghostText["tags"] = strings.Join(result.Tags, ", ")
+	}
+	if len(result.Args) > 0 {
+		for _, arg := range result.Args {
+			m.paramEditor.addGhostParam(arg)
+		}
+	}
+
+	return m
 }

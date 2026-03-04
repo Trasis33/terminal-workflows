@@ -68,6 +68,12 @@ type ParamEditorModel struct {
 	onAddButton   bool // whether cursor is on the "+ Add Parameter" row
 	confirmDelete int  // index of param pending delete (-1 = none)
 
+	// Ghost text for AI suggestions on param sub-fields (field key → value).
+	ghostText map[string]string
+
+	// Ghost params — suggested by AI but not yet accepted.
+	ghostParams []store.Arg
+
 	theme Theme
 	width int
 }
@@ -78,6 +84,7 @@ func NewParamEditor(args []store.Arg, theme Theme, width int) ParamEditorModel {
 		confirmDelete: -1,
 		theme:         theme,
 		width:         width,
+		ghostText:     make(map[string]string),
 	}
 
 	if len(args) == 0 {
@@ -692,6 +699,24 @@ func (m ParamEditorModel) View() string {
 	}
 	rows = append(rows, addLabel)
 
+	// Ghost params (AI suggestions not yet accepted).
+	if len(m.ghostParams) > 0 {
+		ghostStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Dim)).Italic(true)
+		rows = append(rows, "")
+		rows = append(rows, ghostStyle.Render("  AI Suggested Parameters (Enter to accept, Esc to dismiss):"))
+		for i, gp := range m.ghostParams {
+			typeStr := gp.Type
+			if typeStr == "" {
+				typeStr = "text"
+			}
+			row := ghostStyle.Render(fmt.Sprintf("    %d. %s (%s)", i+1, gp.Name, typeStr))
+			if gp.Default != "" {
+				row += ghostStyle.Render(fmt.Sprintf(" = %q", gp.Default))
+			}
+			rows = append(rows, row)
+		}
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
@@ -713,6 +738,7 @@ func (m ParamEditorModel) renderExpandedParam(
 	lines = append(lines, header)
 
 	isEditing := m.editing && idx == m.cursor
+	ghostStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Dim)).Italic(true)
 
 	// Name field.
 	if isEditing && p.focusedField == subFieldName {
@@ -736,11 +762,18 @@ func (m ParamEditorModel) renderExpandedParam(
 	}
 
 	// Default value field.
+	defaultGhost := m.getGhostText(idx, "default")
 	if isEditing && p.focusedField == subFieldDefault {
-		lines = append(lines, "    "+accentBg.Render("Default: ")+m.params[idx].defaultInput.View())
+		ghostHint := ""
+		if defaultGhost != "" {
+			ghostHint = "  " + ghostStyle.Render(defaultGhost)
+		}
+		lines = append(lines, "    "+accentBg.Render("Default: ")+m.params[idx].defaultInput.View()+ghostHint)
 	} else {
 		if p.defaultVal != "" {
 			lines = append(lines, "    "+dimStyle.Render("Default: ")+p.defaultVal)
+		} else if defaultGhost != "" {
+			lines = append(lines, "    "+dimStyle.Render("Default: ")+ghostStyle.Render(defaultGhost))
 		} else {
 			lines = append(lines, "    "+dimStyle.Render("Default: ")+dimStyle.Render("(none)"))
 		}
@@ -748,11 +781,18 @@ func (m ParamEditorModel) renderExpandedParam(
 
 	// Enum options field (only for enum type).
 	if p.paramType == "enum" {
+		optionsGhost := m.getGhostText(idx, "options")
 		if isEditing && p.focusedField == subFieldOptions {
-			lines = append(lines, "    "+accentBg.Render("Options: ")+m.params[idx].optionsInput.View())
+			ghostHint := ""
+			if optionsGhost != "" {
+				ghostHint = "  " + ghostStyle.Render(optionsGhost)
+			}
+			lines = append(lines, "    "+accentBg.Render("Options: ")+m.params[idx].optionsInput.View()+ghostHint)
 		} else {
 			if len(p.options) > 0 {
 				lines = append(lines, "    "+dimStyle.Render("Options: ")+formatOptions(p.options, pillStyle))
+			} else if optionsGhost != "" {
+				lines = append(lines, "    "+dimStyle.Render("Options: ")+ghostStyle.Render(optionsGhost))
 			} else {
 				lines = append(lines, "    "+dimStyle.Render("Options: ")+warnStyle.Render("(none — add comma-separated)"))
 			}
@@ -769,11 +809,18 @@ func (m ParamEditorModel) renderExpandedParam(
 
 	// Dynamic command field (only for dynamic type).
 	if p.paramType == "dynamic" {
+		dynGhost := m.getGhostText(idx, "dynamic_cmd")
 		if isEditing && p.focusedField == subFieldDynamicCmd {
-			lines = append(lines, "    "+accentBg.Render("Command: ")+m.params[idx].dynamicCmdInput.View())
+			ghostHint := ""
+			if dynGhost != "" {
+				ghostHint = "  " + ghostStyle.Render(dynGhost)
+			}
+			lines = append(lines, "    "+accentBg.Render("Command: ")+m.params[idx].dynamicCmdInput.View()+ghostHint)
 		} else {
 			if p.dynamicCmd != "" {
 				lines = append(lines, "    "+dimStyle.Render("Command: ")+p.dynamicCmd)
+			} else if dynGhost != "" {
+				lines = append(lines, "    "+dimStyle.Render("Command: ")+ghostStyle.Render(dynGhost))
 			} else {
 				lines = append(lines, "    "+dimStyle.Render("Command: ")+warnStyle.Render("(none)"))
 			}
@@ -940,4 +987,61 @@ func typeIndex(t string) int {
 		}
 	}
 	return 0
+}
+
+// setGhostText sets AI suggestion ghost text for a param sub-field.
+func (m *ParamEditorModel) setGhostText(fieldKey, value string) {
+	if m.ghostText == nil {
+		m.ghostText = make(map[string]string)
+	}
+	m.ghostText[fieldKey] = value
+}
+
+// getGhostText returns the ghost text for a param sub-field, if any.
+func (m ParamEditorModel) getGhostText(paramIdx int, subField string) string {
+	key := fmt.Sprintf("param:%d:%s", paramIdx, subField)
+	return m.ghostText[key]
+}
+
+// clearGhostText removes ghost text for a specific param sub-field.
+func (m *ParamEditorModel) clearGhostText(paramIdx int, subField string) {
+	key := fmt.Sprintf("param:%d:%s", paramIdx, subField)
+	delete(m.ghostText, key)
+}
+
+// addGhostParam adds an AI-suggested parameter that hasn't been accepted yet.
+func (m *ParamEditorModel) addGhostParam(arg store.Arg) {
+	// Check if a param with this name already exists.
+	for _, p := range m.params {
+		if p.name == arg.Name {
+			return // skip duplicate
+		}
+	}
+	// Check if a ghost param with this name already exists.
+	for _, g := range m.ghostParams {
+		if g.Name == arg.Name {
+			return // skip duplicate
+		}
+	}
+	m.ghostParams = append(m.ghostParams, arg)
+}
+
+// acceptGhostParam converts a ghost param into a real param entry.
+func (m *ParamEditorModel) acceptGhostParam(idx int) {
+	if idx < 0 || idx >= len(m.ghostParams) {
+		return
+	}
+	arg := m.ghostParams[idx]
+	entry := newParamEntry(arg)
+	m.params = append(m.params, entry)
+	// Remove from ghost params.
+	m.ghostParams = append(m.ghostParams[:idx], m.ghostParams[idx+1:]...)
+}
+
+// dismissGhostParam removes a ghost param suggestion.
+func (m *ParamEditorModel) dismissGhostParam(idx int) {
+	if idx < 0 || idx >= len(m.ghostParams) {
+		return
+	}
+	m.ghostParams = append(m.ghostParams[:idx], m.ghostParams[idx+1:]...)
 }

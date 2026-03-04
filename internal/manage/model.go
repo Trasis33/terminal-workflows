@@ -274,10 +274,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case aiAutofillResultMsg:
 		m.aiLoading = false
 		if msg.err != nil {
+			// If we're in form view with autofill lock, unlock the form.
+			if m.state == viewCreate || m.state == viewEdit {
+				m.form.autofillLock = false
+				m.form.fieldLoading = make(map[string]bool)
+				m.form.err = fmt.Errorf("AI autofill failed: %s", msg.err.Error())
+				return m, nil
+			}
 			m.browse.aiError = "AI autofill failed: " + msg.err.Error()
 			return m, nil
 		}
-		// Merge AI result into the workflow and open edit form.
+		// If in form view, apply results as ghost text.
+		if m.state == viewCreate || m.state == viewEdit {
+			m.form = m.form.HandleAutofillResult(msg.result)
+			return m, nil
+		}
+		// Otherwise, merge and open edit form (browse-level autofill).
 		merged := mergeAutofillResult(msg.workflow, msg.result)
 		m.prevState = m.state
 		m.state = viewEdit
@@ -290,6 +302,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case clearFlashMsg:
 		m.flashMsg = ""
 		m.browse.flashMsg = ""
+		return m, nil
+
+	case perFieldAIResultMsg:
+		// Route to form in create/edit views.
+		if m.state == viewCreate || m.state == viewEdit {
+			var cmd tea.Cmd
+			m.form, cmd = m.form.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case suggestParamsResultMsg:
+		// Route to form in create/edit views.
+		if m.state == viewCreate || m.state == viewEdit {
+			var cmd tea.Cmd
+			m.form, cmd = m.form.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 	}
 

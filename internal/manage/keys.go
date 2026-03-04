@@ -24,6 +24,7 @@ type keyMap struct {
 	AutofillAI    key.Binding
 	ParamAdd      key.Binding
 	ParamDelete   key.Binding
+	FormAI        key.Binding
 }
 
 // defaultKeyMap returns the default keybinding configuration.
@@ -55,6 +56,8 @@ func defaultKeyMap() keyMap {
 
 		ParamAdd:    key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "new param")),
 		ParamDelete: key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "delete param")),
+
+		FormAI: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("ctrl+g", "AI suggest")),
 	}
 }
 
@@ -72,7 +75,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.Create, k.Edit, k.Delete, k.Move},
 		{k.Search, k.ToggleSidebar, k.Settings},
 		{k.FolderCreate, k.FolderRename, k.FolderDelete},
-		{k.GenerateAI, k.AutofillAI},
+		{k.GenerateAI, k.AutofillAI, k.FormAI},
 		{k.ParamAdd, k.ParamDelete},
 		{k.Help, k.Quit},
 	}
