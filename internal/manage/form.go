@@ -2,6 +2,7 @@ package manage
 
 import (
 	"errors"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -171,6 +172,13 @@ func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case paramRenamedMsg:
+		// Live command template preview: update {{oldName...}} to {{newName...}} in command textarea.
+		m.updateCommandTemplateOnRename(msg.OldName, msg.NewName)
+		return m, nil
+	case paramTypeChangedMsg:
+		// Type changes are soft-staged — no command template modification until save.
+		return m, nil
 	}
 
 	// Forward non-key messages to the focused widget.
@@ -514,6 +522,37 @@ func (m *FormModel) SetDimensions(width, height int) {
 	m.tagsInput.Width = inputWidth
 	m.folderInput.Width = inputWidth
 	m.paramEditor.SetWidth(inputWidth)
+}
+
+// updateCommandTemplateOnRename replaces all {{oldName...}} patterns with {{newName...}}
+// in the command textarea, supporting all template syntax variants:
+// {{name}}, {{name:default}}, {{name|opt1|opt2}}, {{name!cmd}}
+func (m *FormModel) updateCommandTemplateOnRename(oldName, newName string) {
+	if oldName == "" || newName == "" || oldName == newName {
+		return
+	}
+
+	cmd := m.cmdInput.Value()
+	if cmd == "" {
+		return
+	}
+
+	// Match {{oldName}} or {{oldName:...}} or {{oldName|...}} or {{oldName!...}}
+	// The old name is escaped for regex safety.
+	pattern := `\{\{` + regexp.QuoteMeta(oldName) + `([}:!|][^}]*)?\}\}`
+	re := regexp.MustCompile(pattern)
+
+	updated := re.ReplaceAllStringFunc(cmd, func(match string) string {
+		// Extract the suffix after the old name (e.g., ":default", "|opt1|opt2", "!cmd").
+		inner := match[2 : len(match)-2] // strip {{ and }}
+		suffix := inner[len(oldName):]   // everything after the old name
+		return "{{" + newName + suffix + "}}"
+	})
+
+	if updated != cmd {
+		m.cmdInput.SetValue(updated)
+		m.vals.command = updated
+	}
 }
 
 // parseTags splits a comma-separated string into a clean tag slice.
