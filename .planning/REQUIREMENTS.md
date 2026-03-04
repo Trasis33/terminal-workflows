@@ -21,8 +21,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Parameter CRUD
 
-- [ ] **PCRD-01**: User can add a new parameter to an existing workflow in manage TUI
-- [ ] **PCRD-02**: User can remove a parameter from an existing workflow in manage TUI
+- [x] **PCRD-01**: User can add a new parameter to an existing workflow in manage TUI
+- [x] **PCRD-02**: User can remove a parameter from an existing workflow in manage TUI
 - [ ] **PCRD-03**: User can rename a parameter on an existing workflow in manage TUI
 - [ ] **PCRD-04**: User can change a parameter's type (plain/enum/dynamic/list) in manage TUI
 - [ ] **PCRD-05**: User can edit a parameter's default value in manage TUI
@@ -107,8 +107,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXEC-02 | Phase 9 | Complete |
 | EXEC-03 | Phase 9 | Complete |
 | EXEC-04 | Phase 9 | Complete |
-| PCRD-01 | Phase 10 | Pending |
-| PCRD-02 | Phase 10 | Pending |
+| PCRD-01 | Phase 10 | Complete |
+| PCRD-02 | Phase 10 | Complete |
 | PCRD-03 | Phase 10 | Pending |
 | PCRD-04 | Phase 10 | Pending |
 | PCRD-05 | Phase 10 | Pending |
