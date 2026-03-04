@@ -85,7 +85,11 @@ Plans:
   2. User can rename a parameter and change its type between plain, enum, dynamic, and list — the workflow command template updates accordingly
   3. User can edit parameter metadata: default values, enum options, and dynamic commands — without leaving the TUI
   4. User can trigger AI generation on a single field and see a loading indicator on that specific field while AI processes
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 10-01-PLAN.md — ParamEditorModel foundation with add/remove and accordion UI
+- [ ] 10-02-PLAN.md — Parameter rename, type change, and metadata editing
+- [ ] 10-03-PLAN.md — Per-field AI generation, ghost text, and autofill
 
 ### Phase 11: List Picker
 **Goal**: Users can define parameters that run a shell command and present the output as a selectable list, with control over which column is extracted as the final value
