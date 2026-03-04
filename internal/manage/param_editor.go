@@ -390,3 +390,13 @@ func (m ParamEditorModel) ParamCount() int {
 func (m ParamEditorModel) Focused() bool {
 	return m.editing
 }
+
+// hasExpandedParam returns true if any param is currently expanded.
+func (m ParamEditorModel) hasExpandedParam() bool {
+	for _, p := range m.params {
+		if p.expanded {
+			return true
+		}
+	}
+	return false
+}

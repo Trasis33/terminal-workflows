@@ -19,7 +19,8 @@ func TestNewFormModelCreateMode(t *testing.T) {
 	assert.Empty(t, m.vals.tagInput)
 	assert.Empty(t, m.vals.folder)
 	assert.Empty(t, m.originalName)
-	assert.NotNil(t, m.form)
+	assert.Equal(t, formFieldIndex(0), m.focused)
+	assert.Equal(t, 0, m.paramEditor.ParamCount())
 }
 
 func TestNewFormModelEditMode(t *testing.T) {
@@ -40,7 +41,7 @@ func TestNewFormModelEditMode(t *testing.T) {
 	assert.Equal(t, "kubectl apply -f deploy.yaml", m.vals.command)
 	assert.Equal(t, "Deploy the app to k8s", m.vals.description)
 	assert.Equal(t, "k8s, deploy", m.vals.tagInput)
-	assert.NotNil(t, m.form)
+	assert.Equal(t, 0, m.paramEditor.ParamCount())
 }
 
 func TestNewFormModelEditNoFolder(t *testing.T) {
@@ -172,7 +173,57 @@ func TestFormModelInitReturnsCmd(t *testing.T) {
 	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
 
 	cmd := m.Init()
-	assert.NotNil(t, cmd, "Init should return a command from huh form")
+	assert.NotNil(t, cmd, "Init should return a blink command for the focused input")
+}
+
+func TestFormModelSaveWorkflowWithArgs(t *testing.T) {
+	saved := make([]store.Workflow, 0)
+	s := &savingMockStore{saved: &saved}
+
+	wf := &store.Workflow{
+		Name:    "test-wf",
+		Command: "deploy {{.env}}",
+		Args: []store.Arg{
+			{Name: "env", Type: "enum", Options: []string{"staging", "prod"}},
+		},
+	}
+	m := NewFormModel("edit", wf, s, nil, nil, DefaultTheme())
+
+	// Verify param editor loaded the args.
+	assert.Equal(t, 1, m.paramEditor.ParamCount())
+
+	cmd := m.saveWorkflow()
+	msg := cmd()
+	savedMsg := msg.(workflowSavedMsg)
+
+	require.Len(t, savedMsg.workflow.Args, 1)
+	assert.Equal(t, "env", savedMsg.workflow.Args[0].Name)
+	assert.Equal(t, "enum", savedMsg.workflow.Args[0].Type)
+	assert.Equal(t, []string{"staging", "prod"}, savedMsg.workflow.Args[0].Options)
+}
+
+func TestFormModelValidation(t *testing.T) {
+	s := &mockStore{}
+	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
+
+	// Empty name should fail.
+	err := m.validate()
+	assert.ErrorIs(t, err, errNameRequired)
+
+	// Name with slash should fail.
+	m.vals.name = "bad/name"
+	err = m.validate()
+	assert.ErrorIs(t, err, errNameNoSlash)
+
+	// Empty command should fail.
+	m.vals.name = "good-name"
+	err = m.validate()
+	assert.ErrorIs(t, err, errCommandRequired)
+
+	// Valid form should pass.
+	m.vals.command = "echo hello"
+	err = m.validate()
+	assert.NoError(t, err)
 }
 
 // savingMockStore records saved workflows.

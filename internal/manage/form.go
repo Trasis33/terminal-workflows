@@ -4,8 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/fredriklanga/wf/internal/store"
 )
@@ -18,7 +19,7 @@ var (
 )
 
 // formValues holds form field values as a shared reference.
-// Because bubbletea copies models on each Update cycle, huh's pointer-based
+// Because bubbletea copies models on each Update cycle, pointer-based
 // Value() bindings would point to stale copies of FormModel fields.
 // By storing values in a heap-allocated struct, all copies share the same data.
 type formValues struct {
@@ -29,9 +30,21 @@ type formValues struct {
 	folder      string
 }
 
-// FormModel manages a full-screen huh form for creating or editing a workflow.
+// formFieldIndex enumerates the focusable fields in the form.
+type formFieldIndex int
+
+const (
+	fieldName formFieldIndex = iota
+	fieldDescription
+	fieldCommand
+	fieldTags
+	fieldFolder
+	fieldParams // the param editor section
+	fieldCount  // sentinel — total number of focusable fields
+)
+
+// FormModel manages a full-screen custom form for creating or editing a workflow.
 type FormModel struct {
-	form *huh.Form
 	mode string // "create" or "edit"
 
 	// Edit mode: tracks the original workflow name to handle renames.
@@ -43,10 +56,21 @@ type FormModel struct {
 	width  int
 	height int
 
-	// Shared form field values — bound to huh inputs via pointers.
-	// Using a pointer to a struct ensures all bubbletea copies share
-	// the same underlying data that huh writes to.
+	// Shared form field values.
 	vals *formValues
+
+	// Input widgets for metadata fields.
+	nameInput   textinput.Model
+	descInput   textinput.Model
+	cmdInput    textarea.Model
+	tagsInput   textinput.Model
+	folderInput textinput.Model
+
+	// Parameter editor (below metadata fields).
+	paramEditor ParamEditorModel
+
+	// Which field is currently focused.
+	focused formFieldIndex
 
 	// Suggestions for autocomplete.
 	existingTags    []string
@@ -73,14 +97,14 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 		existingFolders: existingFolders,
 	}
 
+	var args []store.Arg
+
 	if wf != nil {
 		if mode == "edit" {
 			m.originalName = wf.Name
 		}
 
 		// Pre-fill fields from the provided workflow.
-		// For edit mode this restores existing values; for create mode
-		// this enables AI-generated pre-fill of a new workflow form.
 		if idx := strings.LastIndex(wf.Name, "/"); idx >= 0 {
 			m.vals.folder = wf.Name[:idx]
 			m.vals.name = wf.Name[idx+1:]
@@ -91,119 +115,255 @@ func NewFormModel(mode string, wf *store.Workflow, s store.Store, existingTags, 
 		m.vals.description = wf.Description
 		m.vals.command = wf.Command
 		m.vals.tagInput = strings.Join(wf.Tags, ", ")
+
+		args = wf.Args
 	}
 
-	m.form = m.buildForm()
+	m.buildInputs()
+	m.paramEditor = NewParamEditor(args, theme, m.width)
+
 	return m
 }
 
-// buildForm constructs the huh.Form with all workflow fields.
-func (m *FormModel) buildForm() *huh.Form {
-	v := m.vals
+// buildInputs creates the textinput and textarea widgets for metadata fields.
+func (m *FormModel) buildInputs() {
+	// Name field.
+	m.nameInput = textinput.New()
+	m.nameInput.Placeholder = "my-workflow"
+	m.nameInput.CharLimit = 128
+	m.nameInput.SetValue(m.vals.name)
+	m.nameInput.Focus() // name is initially focused
 
-	nameInput := huh.NewInput().
-		Title("Name").
-		Value(&v.name).
-		Placeholder("my-workflow").
-		Validate(func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return errNameRequired
-			}
-			if strings.ContainsAny(s, "/\\") {
-				return errNameNoSlash
-			}
-			return nil
-		})
+	// Description field.
+	m.descInput = textinput.New()
+	m.descInput.Placeholder = "What does this workflow do?"
+	m.descInput.CharLimit = 256
+	m.descInput.SetValue(m.vals.description)
 
-	descInput := huh.NewInput().
-		Title("Description").
-		Value(&v.description).
-		Placeholder("What does this workflow do?")
+	// Command field (textarea).
+	m.cmdInput = textarea.New()
+	m.cmdInput.Placeholder = "Enter command (alt+enter for newline)"
+	m.cmdInput.CharLimit = 0 // no limit
+	m.cmdInput.SetValue(m.vals.command)
+	m.cmdInput.SetHeight(6)
+	m.cmdInput.ShowLineNumbers = false
 
-	cmdInput := huh.NewText().
-		Title("Command").
-		Value(&v.command).
-		Lines(8).
-		Placeholder("Enter command (alt+enter for newline)").
-		Validate(func(s string) error {
-			if strings.TrimSpace(s) == "" {
-				return errCommandRequired
-			}
-			return nil
-		})
+	// Tags field.
+	m.tagsInput = textinput.New()
+	m.tagsInput.Placeholder = "e.g., docker, deploy, infra"
+	m.tagsInput.CharLimit = 256
+	m.tagsInput.SetValue(m.vals.tagInput)
 
-	tagInputField := huh.NewInput().
-		Title("Tags (comma-separated)").
-		Value(&v.tagInput).
-		Placeholder("e.g., docker, deploy, infra")
-	if len(m.existingTags) > 0 {
-		tagInputField = tagInputField.SuggestionsFunc(func() []string {
-			return m.existingTags
-		}, &v.tagInput)
-	}
-
-	folderInput := huh.NewInput().
-		Title("Folder").
-		Value(&v.folder).
-		Placeholder("e.g., infra/deploy (empty for root)")
-	if len(m.existingFolders) > 0 {
-		folderInput = folderInput.SuggestionsFunc(func() []string {
-			return m.existingFolders
-		}, &v.folder)
-	}
-
-	f := huh.NewForm(
-		huh.NewGroup(
-			nameInput,
-			descInput,
-			cmdInput,
-			tagInputField,
-			folderInput,
-		),
-	).WithTheme(huh.ThemeCharm())
-
-	return f
+	// Folder field.
+	m.folderInput = textinput.New()
+	m.folderInput.Placeholder = "e.g., infra/deploy (empty for root)"
+	m.folderInput.CharLimit = 128
+	m.folderInput.SetValue(m.vals.folder)
 }
 
-// Init returns the initial command for the form (delegates to huh).
+// Init returns the initial command for the form.
 func (m FormModel) Init() tea.Cmd {
-	return m.form.Init()
+	return textinput.Blink
 }
 
 // Update processes messages for the form model.
 func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
-	// Check for esc key to abort form and return to browse.
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if keyMsg.String() == "esc" {
-			return m, func() tea.Msg { return switchToBrowseMsg{} }
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+	}
+
+	// Forward non-key messages to the focused widget.
+	return m.updateFocusedWidget(msg)
+}
+
+// handleKey processes keyboard input for navigation and actions.
+func (m FormModel) handleKey(msg tea.KeyMsg) (FormModel, tea.Cmd) {
+	key := msg.String()
+
+	// Esc returns to browse — but only if the param editor isn't in editing mode.
+	if key == "esc" {
+		if m.focused == fieldParams && m.paramEditor.Focused() {
+			// Let the param editor handle esc (cancel name edit).
+			var cmd tea.Cmd
+			m.paramEditor, cmd = m.paramEditor.Update(msg)
+			return m, cmd
 		}
-	}
-
-	// Delegate to huh form.
-	model, cmd := m.form.Update(msg)
-	if f, ok := model.(*huh.Form); ok {
-		m.form = f
-	}
-
-	// Check form state after update.
-	switch m.form.State {
-	case huh.StateCompleted:
-		return m, m.saveWorkflow()
-	case huh.StateAborted:
+		if m.focused == fieldParams && m.paramEditor.confirmDelete >= 0 {
+			// Let the param editor handle esc (cancel delete).
+			var cmd tea.Cmd
+			m.paramEditor, cmd = m.paramEditor.Update(msg)
+			return m, cmd
+		}
 		return m, func() tea.Msg { return switchToBrowseMsg{} }
+	}
+
+	// Ctrl+S saves the workflow.
+	if key == "ctrl+s" {
+		if err := m.validate(); err != nil {
+			m.err = err
+			return m, nil
+		}
+		return m, m.saveWorkflow()
+	}
+
+	// Ctrl+N adds a param (regardless of focused field).
+	if key == "ctrl+n" {
+		var cmd tea.Cmd
+		m.paramEditor, cmd = m.paramEditor.Update(msg)
+		m.focused = fieldParams
+		m.blurAllInputs()
+		return m, cmd
+	}
+
+	// Ctrl+D deletes a param (only when param editor is focused).
+	if key == "ctrl+d" && m.focused == fieldParams {
+		var cmd tea.Cmd
+		m.paramEditor, cmd = m.paramEditor.Update(msg)
+		return m, cmd
+	}
+
+	// Tab / Shift+Tab navigation between fields.
+	if key == "tab" && m.focused != fieldCommand {
+		// In param editor, tab might be handled internally.
+		if m.focused == fieldParams {
+			if m.paramEditor.Focused() || m.paramEditor.hasExpandedParam() {
+				// Let param editor handle tab internally.
+				var cmd tea.Cmd
+				m.paramEditor, cmd = m.paramEditor.Update(msg)
+				return m, cmd
+			}
+			// Tab past param editor wraps to first field.
+			m.focused = fieldName
+			m.focusCurrentField()
+			return m, textinput.Blink
+		}
+		m.focused++
+		m.focusCurrentField()
+		if m.focused == fieldCommand {
+			return m, m.cmdInput.Focus()
+		}
+		return m, textinput.Blink
+	}
+
+	if key == "shift+tab" && m.focused != fieldCommand {
+		if m.focused == fieldParams && (m.paramEditor.Focused() || m.paramEditor.hasExpandedParam()) {
+			var cmd tea.Cmd
+			m.paramEditor, cmd = m.paramEditor.Update(msg)
+			return m, cmd
+		}
+		if m.focused > 0 {
+			m.focused--
+		} else {
+			m.focused = fieldParams
+		}
+		m.focusCurrentField()
+		if m.focused == fieldCommand {
+			return m, m.cmdInput.Focus()
+		}
+		return m, textinput.Blink
+	}
+
+	// For the command textarea, tab should advance to next field (not insert tab).
+	if key == "tab" && m.focused == fieldCommand {
+		m.focused = fieldTags
+		m.focusCurrentField()
+		return m, textinput.Blink
+	}
+	if key == "shift+tab" && m.focused == fieldCommand {
+		m.focused = fieldDescription
+		m.focusCurrentField()
+		return m, textinput.Blink
+	}
+
+	// Route to param editor if focused.
+	if m.focused == fieldParams {
+		var cmd tea.Cmd
+		m.paramEditor, cmd = m.paramEditor.Update(msg)
+		return m, cmd
+	}
+
+	// Forward key to the focused widget.
+	return m.updateFocusedWidget(msg)
+}
+
+// updateFocusedWidget forwards a message to whichever widget is focused.
+func (m FormModel) updateFocusedWidget(msg tea.Msg) (FormModel, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch m.focused {
+	case fieldName:
+		m.nameInput, cmd = m.nameInput.Update(msg)
+		m.vals.name = m.nameInput.Value()
+	case fieldDescription:
+		m.descInput, cmd = m.descInput.Update(msg)
+		m.vals.description = m.descInput.Value()
+	case fieldCommand:
+		m.cmdInput, cmd = m.cmdInput.Update(msg)
+		m.vals.command = m.cmdInput.Value()
+	case fieldTags:
+		m.tagsInput, cmd = m.tagsInput.Update(msg)
+		m.vals.tagInput = m.tagsInput.Value()
+	case fieldFolder:
+		m.folderInput, cmd = m.folderInput.Update(msg)
+		m.vals.folder = m.folderInput.Value()
+	case fieldParams:
+		m.paramEditor, cmd = m.paramEditor.Update(msg)
 	}
 
 	return m, cmd
 }
 
+// focusCurrentField blurs all inputs then focuses the one at m.focused.
+func (m *FormModel) focusCurrentField() {
+	m.blurAllInputs()
+
+	switch m.focused {
+	case fieldName:
+		m.nameInput.Focus()
+	case fieldDescription:
+		m.descInput.Focus()
+	case fieldCommand:
+		// textarea focus is handled by caller (returns a cmd)
+	case fieldTags:
+		m.tagsInput.Focus()
+	case fieldFolder:
+		m.folderInput.Focus()
+	case fieldParams:
+		// param editor doesn't need explicit focus call
+	}
+}
+
+// blurAllInputs removes focus from all input widgets.
+func (m *FormModel) blurAllInputs() {
+	m.nameInput.Blur()
+	m.descInput.Blur()
+	m.cmdInput.Blur()
+	m.tagsInput.Blur()
+	m.folderInput.Blur()
+}
+
+// validate checks required fields before saving.
+func (m FormModel) validate() error {
+	if strings.TrimSpace(m.vals.name) == "" {
+		return errNameRequired
+	}
+	if strings.ContainsAny(m.vals.name, "/\\") {
+		return errNameNoSlash
+	}
+	if strings.TrimSpace(m.vals.command) == "" {
+		return errCommandRequired
+	}
+	return nil
+}
+
 // saveWorkflow builds a Workflow from form fields and persists it via Store.
 func (m FormModel) saveWorkflow() tea.Cmd {
-	// Capture the shared values pointer — huh has been writing
-	// directly to these fields throughout the form lifecycle.
 	v := m.vals
 	st := m.store
 	mode := m.mode
 	originalName := m.originalName
+	args := m.paramEditor.ToArgs()
 
 	return func() tea.Msg {
 		// Parse tags from comma-separated input.
@@ -222,6 +382,7 @@ func (m FormModel) saveWorkflow() tea.Cmd {
 			Command:     strings.TrimSpace(v.command),
 			Description: strings.TrimSpace(v.description),
 			Tags:        tags,
+			Args:        args,
 		}
 
 		// If editing and name changed, delete the old workflow first.
@@ -239,7 +400,7 @@ func (m FormModel) saveWorkflow() tea.Cmd {
 	}
 }
 
-// View renders the form with title and hints.
+// View renders the form with title, fields, param editor, and hints.
 func (m FormModel) View() string {
 	s := m.theme.Styles()
 
@@ -251,31 +412,81 @@ func (m FormModel) View() string {
 		title = s.FormTitle.Render("Create Workflow")
 	}
 
-	// Form body.
-	formView := m.form.View()
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Dim))
+	focusLabelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(m.theme.Colors.Primary)).
+		Bold(true)
+	sectionDivider := labelStyle.Render("── Parameters ──")
+
+	// Build field rows.
+	var rows []string
+	rows = append(rows, "", title)
+
+	// Name.
+	lbl := labelStyle
+	if m.focused == fieldName {
+		lbl = focusLabelStyle
+	}
+	rows = append(rows, lbl.Render("  Name"))
+	rows = append(rows, "  "+m.nameInput.View())
+
+	// Description.
+	lbl = labelStyle
+	if m.focused == fieldDescription {
+		lbl = focusLabelStyle
+	}
+	rows = append(rows, lbl.Render("  Description"))
+	rows = append(rows, "  "+m.descInput.View())
+
+	// Command.
+	lbl = labelStyle
+	if m.focused == fieldCommand {
+		lbl = focusLabelStyle
+	}
+	rows = append(rows, lbl.Render("  Command"))
+	rows = append(rows, "  "+m.cmdInput.View())
+
+	// Tags.
+	lbl = labelStyle
+	if m.focused == fieldTags {
+		lbl = focusLabelStyle
+	}
+	rows = append(rows, lbl.Render("  Tags (comma-separated)"))
+	rows = append(rows, "  "+m.tagsInput.View())
+
+	// Folder.
+	lbl = labelStyle
+	if m.focused == fieldFolder {
+		lbl = focusLabelStyle
+	}
+	rows = append(rows, lbl.Render("  Folder"))
+	rows = append(rows, "  "+m.folderInput.View())
+
+	// Parameter section.
+	rows = append(rows, "")
+	if m.focused == fieldParams {
+		rows = append(rows, focusLabelStyle.Render("  "+sectionDivider))
+	} else {
+		rows = append(rows, "  "+sectionDivider)
+	}
+	rows = append(rows, m.paramEditor.View())
 
 	// Error display.
-	var errLine string
 	if m.err != nil {
-		errLine = lipgloss.NewStyle().
+		errStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
-			Bold(true).
-			Render("Error: " + m.err.Error())
+			Bold(true)
+		rows = append(rows, "", errStyle.Render("  Error: "+m.err.Error()))
 	}
 
 	// Hints.
 	hints := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(m.theme.Colors.Dim)).
-		Render("  esc cancel  tab next field  alt+enter newline in command")
+		Render("  esc cancel  tab next  ctrl+s save  ctrl+n new param  ctrl+d delete param")
 
-	// Compose vertically.
-	sections := []string{"", title, formView}
-	if errLine != "" {
-		sections = append(sections, errLine)
-	}
-	sections = append(sections, hints)
+	rows = append(rows, "", hints)
 
-	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
+	content := lipgloss.JoinVertical(lipgloss.Left, rows...)
 
 	return lipgloss.Place(m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
@@ -287,8 +498,22 @@ func (m FormModel) View() string {
 func (m *FormModel) SetDimensions(width, height int) {
 	m.width = width
 	m.height = height
-	m.form.WithWidth(width)
-	m.form.WithHeight(height - 6) // leave room for title, hints, padding
+
+	// Set widths for inputs — leave some padding.
+	inputWidth := width - 8
+	if inputWidth < 30 {
+		inputWidth = 30
+	}
+	if inputWidth > 80 {
+		inputWidth = 80
+	}
+
+	m.nameInput.Width = inputWidth
+	m.descInput.Width = inputWidth
+	m.cmdInput.SetWidth(inputWidth)
+	m.tagsInput.Width = inputWidth
+	m.folderInput.Width = inputWidth
+	m.paramEditor.SetWidth(inputWidth)
 }
 
 // parseTags splits a comma-separated string into a clean tag slice.
