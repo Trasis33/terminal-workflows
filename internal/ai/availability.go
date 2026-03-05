@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	once     sync.Once
+	mu       sync.Mutex
 	instance *CopilotGenerator
 	initErr  error
 )
@@ -27,44 +27,60 @@ func IsAvailable() bool {
 }
 
 // GetGenerator returns the shared Generator instance, initializing on first call.
-// Uses sync.Once for lazy singleton initialization.
+// Uses a mutex for lazy initialization with automatic recovery if the Copilot
+// CLI process dies (pipe closed errors).
 // Returns ErrUnavailable if the Copilot CLI is not found.
 func GetGenerator(ctx context.Context) (Generator, error) {
-	once.Do(func() {
-		// Fast path: check CLI availability
-		if _, err := exec.LookPath("copilot"); err != nil {
-			initErr = ErrUnavailable
-			return
-		}
+	mu.Lock()
+	defer mu.Unlock()
 
-		// Load AI config for model names
-		cfg := LoadModelConfig()
+	// Return cached instance if available.
+	if instance != nil && initErr == nil {
+		return instance, nil
+	}
 
-		// Create and start Copilot client
-		client := copilot.NewClient(&copilot.ClientOptions{
-			LogLevel: "error",
-		})
-		if err := client.Start(ctx); err != nil {
-			initErr = fmt.Errorf("failed to start Copilot CLI: %w", err)
-			return
-		}
+	// If we previously determined the CLI is unavailable, don't retry.
+	if initErr == ErrUnavailable {
+		return nil, initErr
+	}
 
-		instance = &CopilotGenerator{
-			client:  client,
-			models:  cfg,
-			timeout: defaultTimeout,
-		}
+	// (Re)initialize — either first call or recovery from broken pipe.
+	initErr = nil
+
+	// Fast path: check CLI availability
+	if _, err := exec.LookPath("copilot"); err != nil {
+		initErr = ErrUnavailable
+		return nil, initErr
+	}
+
+	// Load AI config for model names
+	cfg := LoadModelConfig()
+
+	// Create and start Copilot client
+	client := copilot.NewClient(&copilot.ClientOptions{
+		LogLevel: "error",
 	})
-	return instance, initErr
+	if err := client.Start(ctx); err != nil {
+		initErr = fmt.Errorf("failed to start Copilot CLI: %w", err)
+		return nil, initErr
+	}
+
+	instance = &CopilotGenerator{
+		client:  client,
+		models:  cfg,
+		timeout: defaultTimeout,
+	}
+	return instance, nil
 }
 
 // ResetGenerator resets the singleton for testing purposes.
 // This allows tests to re-initialize with different configurations.
 func ResetGenerator() {
+	mu.Lock()
+	defer mu.Unlock()
 	if instance != nil {
 		_ = instance.Close()
 	}
-	once = sync.Once{}
 	instance = nil
 	initErr = nil
 }

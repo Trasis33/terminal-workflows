@@ -31,6 +31,11 @@ func (g *CopilotGenerator) Generate(ctx context.Context, req GenerateRequest) (*
 		},
 	})
 	if err != nil {
+		// If session creation fails with a pipe/closed error, reset the
+		// singleton so the next call reinitializes the Copilot client.
+		if isPipeError(err) {
+			resetBrokenInstance()
+		}
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	defer session.Destroy()
@@ -40,6 +45,9 @@ func (g *CopilotGenerator) Generate(ctx context.Context, req GenerateRequest) (*
 		Prompt: prompt,
 	})
 	if err != nil {
+		if isPipeError(err) {
+			resetBrokenInstance()
+		}
 		return nil, fmt.Errorf("generate: %w", err)
 	}
 
@@ -74,6 +82,9 @@ func (g *CopilotGenerator) Autofill(ctx context.Context, req AutofillRequest) (*
 		},
 	})
 	if err != nil {
+		if isPipeError(err) {
+			resetBrokenInstance()
+		}
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	defer session.Destroy()
@@ -83,6 +94,9 @@ func (g *CopilotGenerator) Autofill(ctx context.Context, req AutofillRequest) (*
 		Prompt: prompt,
 	})
 	if err != nil {
+		if isPipeError(err) {
+			resetBrokenInstance()
+		}
 		return nil, fmt.Errorf("autofill: %w", err)
 	}
 
@@ -142,4 +156,26 @@ func extractJSON(s string) string {
 		}
 	}
 	return ""
+}
+
+// isPipeError returns true if the error indicates a broken pipe or closed file
+// descriptor, which means the Copilot CLI subprocess has died.
+func isPipeError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "file already closed") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "pipe") ||
+		strings.Contains(msg, "EOF")
+}
+
+// resetBrokenInstance clears the singleton so the next GetGenerator call
+// reinitializes the Copilot client.
+func resetBrokenInstance() {
+	mu.Lock()
+	defer mu.Unlock()
+	instance = nil
+	initErr = nil
 }

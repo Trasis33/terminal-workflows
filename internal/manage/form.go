@@ -147,7 +147,10 @@ func (m *FormModel) buildInputs() {
 	m.nameInput.Placeholder = "my-workflow"
 	m.nameInput.CharLimit = 128
 	m.nameInput.SetValue(m.vals.name)
-	m.nameInput.Focus() // name is initially focused
+	// NOTE: do NOT Focus() here — the terminal may emit OSC responses
+	// (e.g. background color query from lipgloss renderer) that get
+	// captured as typed text into a focused input. Instead, we focus
+	// in Init() which runs after the program starts reading input.
 
 	// Description field.
 	m.descInput = textinput.New()
@@ -176,14 +179,25 @@ func (m *FormModel) buildInputs() {
 	m.folderInput.SetValue(m.vals.folder)
 }
 
+// formInitMsg is sent by Init() to trigger initial field focus.
+// This avoids focusing inputs in buildInputs() where terminal OSC
+// responses (e.g. background color) would be captured as typed text.
+type formInitMsg struct{}
+
 // Init returns the initial command for the form.
 func (m FormModel) Init() tea.Cmd {
-	return textinput.Blink
+	return func() tea.Msg { return formInitMsg{} }
 }
 
 // Update processes messages for the form model.
 func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case formInitMsg:
+		// Focus the name field now that the program is running and
+		// terminal OSC queries have been processed.
+		m.focused = fieldName
+		m.nameInput.Focus()
+		return m, textinput.Blink
 	case tea.KeyMsg:
 		// During autofill lock, only Esc is allowed (to cancel).
 		if m.autofillLock {
@@ -540,7 +554,9 @@ func (m FormModel) View() string {
 		lbl = focusLabelStyle
 	}
 	rows = append(rows, lbl.Render("  Command")+aiIndicator("command"))
-	rows = append(rows, "  "+m.cmdInput.View())
+	// Use PaddingLeft to indent all lines of the multi-line textarea consistently.
+	cmdView := lipgloss.NewStyle().PaddingLeft(2).Render(m.cmdInput.View())
+	rows = append(rows, cmdView)
 
 	// Tags.
 	lbl = labelStyle
