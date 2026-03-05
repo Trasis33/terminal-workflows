@@ -172,10 +172,14 @@ func isPipeError(err error) bool {
 }
 
 // resetBrokenInstance clears the singleton so the next GetGenerator call
-// reinitializes the Copilot client.
+// reinitializes the Copilot client. It closes the old client to clean up
+// the dead subprocess.
 func resetBrokenInstance() {
 	mu.Lock()
 	defer mu.Unlock()
+	if instance != nil {
+		_ = instance.Close()
+	}
 	instance = nil
 	initErr = nil
 }

@@ -30,7 +30,11 @@ func IsAvailable() bool {
 // Uses a mutex for lazy initialization with automatic recovery if the Copilot
 // CLI process dies (pipe closed errors).
 // Returns ErrUnavailable if the Copilot CLI is not found.
-func GetGenerator(ctx context.Context) (Generator, error) {
+//
+// IMPORTANT: The Copilot subprocess is started with context.Background() so it
+// outlives any individual request timeout. Passing a request-scoped context
+// to client.Start() would kill the subprocess when the request completes.
+func GetGenerator(_ context.Context) (Generator, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -56,11 +60,12 @@ func GetGenerator(ctx context.Context) (Generator, error) {
 	// Load AI config for model names
 	cfg := LoadModelConfig()
 
-	// Create and start Copilot client
+	// Create and start Copilot client.
+	// Use context.Background() so the subprocess outlives individual requests.
 	client := copilot.NewClient(&copilot.ClientOptions{
 		LogLevel: "error",
 	})
-	if err := client.Start(ctx); err != nil {
+	if err := client.Start(context.Background()); err != nil {
 		initErr = fmt.Errorf("failed to start Copilot CLI: %w", err)
 		return nil, initErr
 	}

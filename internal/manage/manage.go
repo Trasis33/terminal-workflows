@@ -3,6 +3,8 @@ package manage
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
+
 	"github.com/fredriklanga/wf/internal/config"
 	"github.com/fredriklanga/wf/internal/store"
 )
@@ -36,7 +38,13 @@ func Run(s store.Store) (string, error) {
 	ttyOut, ttyOutErr := openTTY()
 	if ttyOutErr == nil {
 		defer ttyOut.Close()
-		lipgloss.SetDefaultRenderer(lipgloss.NewRenderer(ttyOut))
+		r := lipgloss.NewRenderer(ttyOut, termenv.WithProfile(termenv.TrueColor))
+		// Pre-set dark background to prevent the renderer from sending an
+		// OSC 11 query to the terminal. The terminal's response arrives
+		// through stdin and gets captured by focused textinputs as garbage
+		// characters (the ANSI escape leak bug).
+		r.SetHasDarkBackground(true)
+		lipgloss.SetDefaultRenderer(r)
 	}
 	ttyIn, ttyInErr := openTTYInput()
 	if ttyInErr == nil {

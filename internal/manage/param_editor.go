@@ -72,7 +72,9 @@ type ParamEditorModel struct {
 	ghostText map[string]string
 
 	// Ghost params — suggested by AI but not yet accepted.
-	ghostParams []store.Arg
+	ghostParams   []store.Arg
+	onGhostParams bool // whether cursor is in the ghost params section
+	ghostCursor   int  // which ghost param is focused (within ghostParams)
 
 	theme Theme
 	width int
@@ -460,7 +462,10 @@ func (m *ParamEditorModel) cancelCurrentField() {
 
 // updateNavigation handles normal navigation and action keys.
 func (m ParamEditorModel) updateNavigation(msg tea.KeyMsg) (ParamEditorModel, tea.Cmd) {
-	totalItems := len(m.params) + 1 // params + add button
+	// Handle ghost params navigation separately.
+	if m.onGhostParams {
+		return m.updateGhostNavigation(msg)
+	}
 
 	switch msg.String() {
 	case "up", "k":
@@ -476,6 +481,12 @@ func (m ParamEditorModel) updateNavigation(msg tea.KeyMsg) (ParamEditorModel, te
 
 	case "down", "j":
 		if m.onAddButton {
+			// Move to ghost params if any exist.
+			if len(m.ghostParams) > 0 {
+				m.onAddButton = false
+				m.onGhostParams = true
+				m.ghostCursor = 0
+			}
 			return m, nil
 		}
 		if m.cursor < len(m.params)-1 {
@@ -509,7 +520,14 @@ func (m ParamEditorModel) updateNavigation(msg tea.KeyMsg) (ParamEditorModel, te
 		}
 		// Otherwise, move to next item.
 		if m.onAddButton {
-			// Tab past the add button — let the parent handle it.
+			// Tab past add button to ghost params if any exist.
+			if len(m.ghostParams) > 0 {
+				m.onAddButton = false
+				m.onGhostParams = true
+				m.ghostCursor = 0
+				return m, nil
+			}
+			// Otherwise let the parent handle it.
 			return m, nil
 		}
 		if m.cursor < len(m.params)-1 {
@@ -531,7 +549,58 @@ func (m ParamEditorModel) updateNavigation(msg tea.KeyMsg) (ParamEditorModel, te
 		return m, nil
 	}
 
-	_ = totalItems
+	return m, nil
+}
+
+// updateGhostNavigation handles navigation within the ghost params section.
+func (m ParamEditorModel) updateGhostNavigation(msg tea.KeyMsg) (ParamEditorModel, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k", "shift+tab":
+		if m.ghostCursor > 0 {
+			m.ghostCursor--
+		} else {
+			// Move back to add button.
+			m.onGhostParams = false
+			m.onAddButton = true
+		}
+		return m, nil
+
+	case "down", "j", "tab":
+		if m.ghostCursor < len(m.ghostParams)-1 {
+			m.ghostCursor++
+		}
+		// At the end, stay put (don't leave ghost section via down).
+		return m, nil
+
+	case "enter":
+		// Accept the focused ghost param.
+		if m.ghostCursor >= 0 && m.ghostCursor < len(m.ghostParams) {
+			m.acceptGhostParam(m.ghostCursor)
+			// If no more ghost params, move back to add button.
+			if len(m.ghostParams) == 0 {
+				m.onGhostParams = false
+				m.onAddButton = true
+			} else if m.ghostCursor >= len(m.ghostParams) {
+				m.ghostCursor = len(m.ghostParams) - 1
+			}
+		}
+		return m, nil
+
+	case "esc":
+		// Dismiss the focused ghost param.
+		if m.ghostCursor >= 0 && m.ghostCursor < len(m.ghostParams) {
+			m.dismissGhostParam(m.ghostCursor)
+			// If no more ghost params, move back to add button.
+			if len(m.ghostParams) == 0 {
+				m.onGhostParams = false
+				m.onAddButton = true
+			} else if m.ghostCursor >= len(m.ghostParams) {
+				m.ghostCursor = len(m.ghostParams) - 1
+			}
+		}
+		return m, nil
+	}
+
 	return m, nil
 }
 
@@ -702,16 +771,27 @@ func (m ParamEditorModel) View() string {
 	// Ghost params (AI suggestions not yet accepted).
 	if len(m.ghostParams) > 0 {
 		ghostStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Dim)).Italic(true)
+		focusGhostStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.theme.Colors.Primary)).Bold(true)
 		rows = append(rows, "")
-		rows = append(rows, ghostStyle.Render("  AI Suggested Parameters (Enter to accept, Esc to dismiss):"))
+		rows = append(rows, ghostStyle.Render("  AI Suggested Parameters:"))
 		for i, gp := range m.ghostParams {
 			typeStr := gp.Type
 			if typeStr == "" {
 				typeStr = "text"
 			}
-			row := ghostStyle.Render(fmt.Sprintf("    %d. %s (%s)", i+1, gp.Name, typeStr))
+			isFocusedGhost := m.onGhostParams && i == m.ghostCursor
+			style := ghostStyle
+			prefix := "  "
+			if isFocusedGhost {
+				style = focusGhostStyle
+				prefix = "> "
+			}
+			row := style.Render(fmt.Sprintf("  %s%s (%s)", prefix, gp.Name, typeStr))
 			if gp.Default != "" {
-				row += ghostStyle.Render(fmt.Sprintf(" = %q", gp.Default))
+				row += style.Render(fmt.Sprintf(" = %q", gp.Default))
+			}
+			if isFocusedGhost {
+				row += ghostStyle.Render("  enter=accept  esc=dismiss")
 			}
 			rows = append(rows, row)
 		}
@@ -966,7 +1046,7 @@ func (m ParamEditorModel) ParamCount() int {
 // Focused returns whether the param editor should be considered focused.
 // The parent form uses this to determine key routing.
 func (m ParamEditorModel) Focused() bool {
-	return m.editing
+	return m.editing || m.onGhostParams
 }
 
 // hasExpandedParam returns true if any param is currently expanded.

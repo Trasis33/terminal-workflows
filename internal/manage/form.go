@@ -525,9 +525,11 @@ func (m FormModel) View() string {
 	}
 
 	// Helper to render ghost text suffix.
-	ghostSuffix := func(fieldKey string) string {
+	// Rendered on a separate line below the field to avoid right-alignment
+	// caused by the fixed-width textinput view.
+	ghostLine := func(fieldKey string) string {
 		if ghost, ok := m.ghostText[fieldKey]; ok && ghost != "" {
-			return "  " + ghostStyle.Render(ghost)
+			return "  " + ghostStyle.Render("  → "+ghost+" (Enter accept, Esc dismiss)")
 		}
 		return ""
 	}
@@ -538,7 +540,10 @@ func (m FormModel) View() string {
 		lbl = focusLabelStyle
 	}
 	rows = append(rows, lbl.Render("  Name")+aiIndicator("name"))
-	rows = append(rows, "  "+m.nameInput.View()+ghostSuffix("name"))
+	rows = append(rows, "  "+m.nameInput.View())
+	if gl := ghostLine("name"); gl != "" {
+		rows = append(rows, gl)
+	}
 
 	// Description.
 	lbl = labelStyle
@@ -546,7 +551,10 @@ func (m FormModel) View() string {
 		lbl = focusLabelStyle
 	}
 	rows = append(rows, lbl.Render("  Description")+aiIndicator("description"))
-	rows = append(rows, "  "+m.descInput.View()+ghostSuffix("description"))
+	rows = append(rows, "  "+m.descInput.View())
+	if gl := ghostLine("description"); gl != "" {
+		rows = append(rows, gl)
+	}
 
 	// Command.
 	lbl = labelStyle
@@ -564,7 +572,10 @@ func (m FormModel) View() string {
 		lbl = focusLabelStyle
 	}
 	rows = append(rows, lbl.Render("  Tags (comma-separated)")+aiIndicator("tags"))
-	rows = append(rows, "  "+m.tagsInput.View()+ghostSuffix("tags"))
+	rows = append(rows, "  "+m.tagsInput.View())
+	if gl := ghostLine("tags"); gl != "" {
+		rows = append(rows, gl)
+	}
 
 	// Folder.
 	lbl = labelStyle
@@ -894,7 +905,12 @@ func (m FormModel) handlePerFieldAIResult(msg perFieldAIResultMsg) (FormModel, t
 	delete(m.fieldLoading, msg.fieldName)
 
 	if msg.err != nil {
-		m.err = fmt.Errorf("AI: %s", msg.err.Error())
+		errMsg := msg.err.Error()
+		if strings.Contains(errMsg, "file already closed") || strings.Contains(errMsg, "broken pipe") || strings.Contains(errMsg, "EOF") {
+			m.err = fmt.Errorf("AI unavailable — Copilot connection failed. Try again")
+		} else {
+			m.err = fmt.Errorf("AI: %s", errMsg)
+		}
 		return m, nil
 	}
 
