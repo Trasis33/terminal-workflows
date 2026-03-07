@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish & Power
 status: in_progress
-last_updated: "2026-03-07"
+last_updated: "2026-03-07T19:16:00Z"
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 39
+  total_plans: 40
   completed_plans: 39
 ---
 
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 11 — List Picker (next)
+**Current focus:** Phase 11 — List Picker
 
 ## Current Position
 
-Phase: 10 of 11 (Parameter CRUD & Per-Field AI) — COMPLETE
-Plan: 3 of 3 in current phase — ALL DONE
-Status: Phase 10 complete
-Last activity: 2026-03-07 — Completed 10-03 per-field AI generation, ghost text, autofill
+Phase: 11 of 11 (List Picker) — IN PROGRESS
+Plan: 1 of 3 in current phase — COMPLETE
+Status: Phase 11 in progress
+Last activity: 2026-03-07 — Completed 11-01 shared list metadata overlay, helpers, and tests
 
-Progress: [███████████████████░] 95% (39/39 plans through Phase 10)
+Progress: [███████████████████░] 98% (39/40 plans through Phase 11)
 
 ## Performance Metrics
 
@@ -51,6 +51,7 @@ Progress: [███████████████████░] 95% (39
 | Phase 10 P01 | 5m | 2 tasks | 7 files |
 | Phase 10 P02 | 5m | 2 tasks | 3 files |
 | Phase 10 P03 | multi-session | 2 tasks | 8 files |
+| Phase 11 P01 | 6 min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 10]: Ghost text rendered on separate line below field — fixed-width textinput pushes inline ghost text far right.
 - [Phase 10]: GetGenerator uses context.Background() for Copilot subprocess — must outlive individual request timeouts.
 - [Phase 10]: termenv.WithProfile + SetHasDarkBackground prevents OSC 11 query ANSI escape leak into textinputs.
+- [Phase 11]: Stored workflow arg metadata now overrides extracted runtime param type data by name — Makes saved type:list parameters authoritative at runtime while preserving inline defaults.
+- [Phase 11]: List extraction remains literal and 1-based — Keeps scope aligned with plan and avoids quote-aware parsing complexity in this phase.
 
 ### Pending Todos
 
@@ -87,5 +90,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed Phase 10 (all 3 plans)
-Resume with: `/gsd-plan-phase 11` to begin Phase 11 (List Picker)
+Stopped at: Completed 11-01-PLAN.md
+Resume with: `/gsd-execute-phase 11` to continue Phase 11 plan 02

@@ -118,7 +118,7 @@ Plans:
 | 8. Smart Defaults | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 9. Execute in Manage | v1.1 | 2/2 | Complete | 2026-03-02 |
 | 10. Parameter CRUD & Per-Field AI | v1.1 | 3/3 | Complete | 2026-03-07 |
-| 11. List Picker | v1.1 | 0/TBD | Not started | - |
+| 11. List Picker | 1/3 | In Progress|  | - |
 
 ## Requirement Coverage
 
