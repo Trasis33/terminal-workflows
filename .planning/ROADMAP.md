@@ -30,7 +30,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
 - [x] **Phase 7: Polish & Terminal Compat** - Syntax highlighting, UX fixes, Warp keybinding (completed 2026-02-28)
 - [x] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults (completed 2026-03-01)
 - [x] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI (completed 2026-03-02)
-- [ ] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate
+- [x] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate (completed 2026-03-07)
 - [ ] **Phase 11: List Picker** - New parameter type with shell command output selection
 
 ## Phase Details
@@ -87,9 +87,9 @@ Plans:
   4. User can trigger AI generation on a single field and see a loading indicator on that specific field while AI processes
 **Plans**: 3 plans
 Plans:
-- [ ] 10-01-PLAN.md — ParamEditorModel foundation with add/remove and accordion UI
-- [ ] 10-02-PLAN.md — Parameter rename, type change, and metadata editing
-- [ ] 10-03-PLAN.md — Per-field AI generation, ghost text, and autofill
+- [x] 10-01-PLAN.md — ParamEditorModel foundation with add/remove and accordion UI
+- [x] 10-02-PLAN.md — Parameter rename, type change, and metadata editing
+- [x] 10-03-PLAN.md — Per-field AI generation, ghost text, and autofill
 
 ### Phase 11: List Picker
 **Goal**: Users can define parameters that run a shell command and present the output as a selectable list, with control over which column is extracted as the final value
@@ -100,7 +100,12 @@ Plans:
   2. User can select one item from the list and have it inserted as the parameter value
   3. User can configure column extraction (field index + custom delimiter) so only a specific part of the selected line becomes the value
   4. User can configure header line skipping so informational header rows from command output are not selectable
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Shared list metadata overlay, command/extraction helpers, and tests
+- [ ] 11-02-PLAN.md — Manage editor authoring for list command/delimiter/field index/header skip
+- [ ] 11-03-PLAN.md — Picker/manage runtime list selection, filtering, confirmation, and errors
 
 ## Progress
 
@@ -112,7 +117,7 @@ Plans:
 | 7. Polish & Terminal Compat | v1.1 | 3/3 | Complete | 2026-02-28 |
 | 8. Smart Defaults | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 9. Execute in Manage | v1.1 | 2/2 | Complete | 2026-03-02 |
-| 10. Parameter CRUD & Per-Field AI | 2/3 | In Progress|  | - |
+| 10. Parameter CRUD & Per-Field AI | v1.1 | 3/3 | Complete | 2026-03-07 |
 | 11. List Picker | v1.1 | 0/TBD | Not started | - |
 
 ## Requirement Coverage
