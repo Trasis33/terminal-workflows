@@ -51,11 +51,12 @@ type Model struct {
 	params            []template.Param
 	paramInputs       []textinput.Model
 	focusedParam      int
-	paramTypes        []template.ParamType // type per param (text/enum/dynamic)
-	paramOptions      [][]string           // options for enum/dynamic params (nil for text)
+	paramTypes        []template.ParamType // type per param (text/enum/dynamic/list)
+	paramOptions      [][]string           // options for enum/dynamic params (nil for text/list)
 	paramOptionCursor []int                // cursor position within each param's option list
 	paramLoading      []bool               // true while dynamic command is executing
 	paramFailed       []bool               // true if dynamic command failed (fallback to text)
+	paramListStates   []listPickerState    // dedicated list picker substate per list param
 
 	// Result is the final output command, read by caller after tea.Quit.
 	Result string

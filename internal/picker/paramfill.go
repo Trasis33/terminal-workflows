@@ -1,8 +1,6 @@
 package picker
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os/exec"
@@ -34,6 +32,7 @@ func initParamFill(m *Model) {
 	m.paramOptionCursor = make([]int, n)
 	m.paramLoading = make([]bool, n)
 	m.paramFailed = make([]bool, n)
+	m.paramListStates = make([]listPickerState, n)
 
 	for i, p := range m.params {
 		ti := textinput.New()
@@ -67,6 +66,15 @@ func initParamFill(m *Model) {
 			m.paramLoading[i] = true
 			ti.Placeholder = "Loading..."
 
+		case template.ParamList:
+			m.paramListStates[i] = newListPickerState(p)
+			if p.Default != "" {
+				ti.SetValue(p.Default)
+				ti.TextStyle = defaultTextStyle
+				ti.CursorEnd()
+			}
+			ti.Placeholder = "Choose from list"
+
 		default: // ParamText
 			if p.Default != "" {
 				ti.SetValue(p.Default)
@@ -75,12 +83,10 @@ func initParamFill(m *Model) {
 			}
 		}
 
-		if i == 0 {
-			ti.Focus()
-		}
 		m.paramInputs[i] = ti
 	}
 	m.focusedParam = 0
+	m.focusParam(0)
 }
 
 // initParamFillCmds returns tea.Cmds to execute dynamic parameter commands.
@@ -113,13 +119,9 @@ func executeDynamic(paramIndex int, command string) dynamicResultMsg {
 		}
 	}
 
-	var options []string
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			options = append(options, line)
-		}
+	options := strings.FieldsFunc(string(output), func(r rune) bool { return r == '\n' || r == '\r' })
+	for i := range options {
+		options[i] = strings.TrimSpace(options[i])
 	}
 
 	if len(options) == 0 {
@@ -133,6 +135,37 @@ func executeDynamic(paramIndex int, command string) dynamicResultMsg {
 		paramIndex: paramIndex,
 		options:    options,
 	}
+}
+
+func (m *Model) focusParam(index int) {
+	if index < 0 || index >= len(m.paramInputs) {
+		return
+	}
+	if m.isListPickerParam(index) {
+		m.paramListStates[index].focus()
+		m.paramInputs[index].Blur()
+		return
+	}
+	m.paramInputs[index].Focus()
+}
+
+func (m *Model) blurParam(index int) {
+	if index < 0 || index >= len(m.paramInputs) {
+		return
+	}
+	m.paramInputs[index].Blur()
+	if m.isListPickerParam(index) {
+		m.paramListStates[index].blur()
+	}
+}
+
+func (m *Model) moveFocus(next int) {
+	if len(m.paramInputs) == 0 {
+		return
+	}
+	m.blurParam(m.focusedParam)
+	m.focusedParam = (next + len(m.paramInputs)) % len(m.paramInputs)
+	m.focusParam(m.focusedParam)
 }
 
 // liveRender builds the command preview with current input values.
@@ -155,17 +188,19 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "tab":
-		m.paramInputs[m.focusedParam].Blur()
-		m.focusedParam = (m.focusedParam + 1) % len(m.paramInputs)
-		m.paramInputs[m.focusedParam].Focus()
+		m.moveFocus(m.focusedParam + 1)
 		return m, nil
 
 	case "shift+tab":
-		m.paramInputs[m.focusedParam].Blur()
-		m.focusedParam = (m.focusedParam - 1 + len(m.paramInputs)) % len(m.paramInputs)
-		m.paramInputs[m.focusedParam].Focus()
+		m.moveFocus(m.focusedParam - 1)
 		return m, nil
+	}
 
+	if m.isListPickerParam(m.focusedParam) {
+		return m.updateFocusedListParam(msg)
+	}
+
+	switch msg.String() {
 	case "up":
 		// For enum/dynamic params, cycle options upward
 		if m.isListParam(m.focusedParam) {
@@ -216,9 +251,7 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		// Otherwise advance to next param (same as tab)
-		m.paramInputs[m.focusedParam].Blur()
-		m.focusedParam++
-		m.paramInputs[m.focusedParam].Focus()
+		m.moveFocus(m.focusedParam + 1)
 		return m, nil
 
 	default:
@@ -230,6 +263,61 @@ func (m Model) updateParamFill(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.paramInputs[m.focusedParam], cmd = m.paramInputs[m.focusedParam].Update(msg)
 		m.updateFocusedTextStyle()
+		return m, cmd
+	}
+}
+
+func (m Model) updateFocusedListParam(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	state := &m.paramListStates[m.focusedParam]
+	param := m.params[m.focusedParam]
+
+	if state.hasConfirmation() && msg.String() != "enter" {
+		state.clearConfirmation()
+	}
+
+	switch msg.String() {
+	case "up":
+		state.moveCursor(-1)
+		return m, nil
+	case "down":
+		state.moveCursor(1)
+		return m, nil
+	case "enter":
+		if state.hasConfirmation() {
+			m.paramInputs[m.focusedParam].SetValue(state.acceptConfirmedValue())
+			if m.focusedParam == len(m.paramInputs)-1 || allParamsFilled(m) {
+				values := make(map[string]string)
+				for i, p := range m.params {
+					v := m.paramInputs[i].Value()
+					if v != "" {
+						values[p.Name] = v
+					}
+				}
+				m.Result = template.Render(m.selected.Command, values)
+				return m, tea.Quit
+			}
+			m.moveFocus(m.focusedParam + 1)
+			return m, nil
+		}
+		state.confirmSelection(param)
+		return m, nil
+	case "backspace":
+		if state.deleteNumberSelection() {
+			return m, nil
+		}
+		cmd := state.updateFilter(msg)
+		return m, cmd
+	case "d":
+		if state.hasLoadError() && state.loadErrDetail != "" {
+			state.showErrorDetail = !state.showErrorDetail
+		}
+		return m, nil
+	default:
+		if listPickerUsesNumberSelection(msg, state.filterInput.Value()) {
+			state.appendNumberSelection(msg.Runes[0])
+			return m, nil
+		}
+		cmd := state.updateFilter(msg)
 		return m, cmd
 	}
 }
@@ -249,6 +337,10 @@ func (m *Model) updateFocusedTextStyle() {
 	m.paramInputs[m.focusedParam].TextStyle = normalStyle
 }
 
+func (m Model) isListPickerParam(i int) bool {
+	return i >= 0 && i < len(m.paramTypes) && m.paramTypes[i] == template.ParamList
+}
+
 // isListParam returns true if the param at index i has a selectable option list.
 // This is true for enum params and for dynamic params that loaded successfully.
 func (m Model) isListParam(i int) bool {
@@ -266,7 +358,10 @@ func (m Model) isListParam(i int) bool {
 
 // allParamsFilled returns true if every parameter input has a non-empty value.
 func allParamsFilled(m Model) bool {
-	for _, input := range m.paramInputs {
+	for i, input := range m.paramInputs {
+		if m.isListPickerParam(i) && m.paramListStates[i].hasLoadError() {
+			return false
+		}
 		if input.Value() == "" {
 			return false
 		}
@@ -376,6 +471,37 @@ func (m Model) viewParamFill() string {
 				}
 			}
 
+		case m.isListPickerParam(i):
+			state := m.paramListStates[i]
+			selectedVal := m.paramInputs[i].Value()
+			valueStyle := dimStyle
+			if selectedVal == "" {
+				switch {
+				case state.hasLoadError():
+					selectedVal = state.loadErrShort
+				case state.hasConfirmation():
+					selectedVal = state.confirmValue
+				default:
+					selectedVal = "Choose from list"
+				}
+			} else {
+				valueStyle = highlightStyle
+			}
+			if state.hasConfirmation() {
+				valueStyle = highlightStyle
+			}
+
+			var descStr string
+			if p.Default != "" && selectedVal == p.Default {
+				descStr = dimStyle.Render(" (default)")
+			}
+
+			row := prefix + style.Render(label+": ") + valueStyle.Render(selectedVal) + descStr
+			sections = append(sections, row)
+			if isFocused {
+				sections = append(sections, state.renderLines()...)
+			}
+
 		default:
 			// Text param — unchanged
 			inputView := m.paramInputs[i].View()
@@ -393,12 +519,14 @@ func (m Model) viewParamFill() string {
 	// Footer hints
 	hasListParam := false
 	for i := range m.paramTypes {
-		if m.isListParam(i) {
+		if m.isListParam(i) || m.isListPickerParam(i) {
 			hasListParam = true
 			break
 		}
 	}
-	if hasListParam {
+	if m.isListPickerParam(m.focusedParam) {
+		sections = append(sections, hintStyle.Render("  type to filter  1-9 select row  enter confirm  tab next  esc cancel"))
+	} else if hasListParam {
 		sections = append(sections, hintStyle.Render("  ↑↓ select option  tab next  shift+tab prev  enter paste to shell  esc cancel"))
 	} else {
 		sections = append(sections, hintStyle.Render("  tab next  shift+tab prev  enter paste to shell  esc cancel"))
