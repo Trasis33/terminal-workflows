@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish & Power
 status: in_progress
-last_updated: "2026-03-07T19:16:00Z"
+last_updated: "2026-03-07T19:26:30Z"
 progress:
   total_phases: 11
   completed_phases: 10
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-27)
 ## Current Position
 
 Phase: 11 of 11 (List Picker) — IN PROGRESS
-Plan: 1 of 3 in current phase — COMPLETE
+Plan: 2 of 3 in current phase — COMPLETE
 Status: Phase 11 in progress
-Last activity: 2026-03-07 — Completed 11-01 shared list metadata overlay, helpers, and tests
+Last activity: 2026-03-07 — Completed 11-02 manage list authoring controls and round-trip tests
 
 Progress: [███████████████████░] 98% (39/40 plans through Phase 11)
 
@@ -52,6 +52,7 @@ Progress: [███████████████████░] 98% (39
 | Phase 10 P02 | 5m | 2 tasks | 3 files |
 | Phase 10 P03 | multi-session | 2 tasks | 8 files |
 | Phase 11 P01 | 6 min | 2 tasks | 11 files |
+| Phase 11 P02 | 6 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 10]: termenv.WithProfile + SetHasDarkBackground prevents OSC 11 query ANSI escape leak into textinputs.
 - [Phase 11]: Stored workflow arg metadata now overrides extracted runtime param type data by name — Makes saved type:list parameters authoritative at runtime while preserving inline defaults.
 - [Phase 11]: List extraction remains literal and 1-based — Keeps scope aligned with plan and avoids quote-aware parsing complexity in this phase.
+- [Phase 11]: List field index stays author-facing and 1-based, with blank or 0 preserved as whole-row fallback.
+- [Phase 11]: List command, delimiter, field index, and header skip remain isolated from enum/dynamic metadata and soft-stage across type switches until save.
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 11-01-PLAN.md
-Resume with: `/gsd-execute-phase 11` to continue Phase 11 plan 02
+Stopped at: Completed 11-02-PLAN.md
+Resume with: `/gsd-execute-phase 11` to continue Phase 11 plan 03
