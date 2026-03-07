@@ -1,13 +1,14 @@
 package manage
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,11 +16,14 @@ import (
 	parammeta "github.com/fredriklanga/wf/internal/params"
 	"github.com/fredriklanga/wf/internal/store"
 	"github.com/fredriklanga/wf/internal/template"
+	"github.com/sahilm/fuzzy"
 )
 
 const dialogExecute dialogType = 11
 const executePreviewMinRows = 4
 const executePreviewMaxCommandRows = 3
+const executeDialogListPreviewMaxWidth = 72
+const executeDialogListVisibleMaxRows = 6
 
 type executePhase int
 
@@ -53,6 +57,7 @@ type ExecuteDialogModel struct {
 	paramOptionCursor []int
 	paramLoading      []bool
 	paramFailed       []bool
+	paramListStates   []executeDialogListState
 	focusedParam      int
 
 	renderedCommand string
@@ -61,6 +66,20 @@ type ExecuteDialogModel struct {
 
 	width int
 	theme Theme
+}
+
+type executeDialogListState struct {
+	filterInput     textinput.Model
+	allRows         []parammeta.ListRow
+	visibleRows     []parammeta.ListRow
+	cursor          int
+	numberBuffer    string
+	parseError      string
+	confirmValue    string
+	loadErrShort    string
+	loadErrDetail   string
+	showErrorDetail bool
+	emptyAfterSkip  bool
 }
 
 func NewExecuteDialog(wf store.Workflow, width int, theme Theme) ExecuteDialogModel {
@@ -91,6 +110,7 @@ func NewExecuteDialog(wf store.Workflow, width int, theme Theme) ExecuteDialogMo
 	d.paramOptionCursor = make([]int, len(params))
 	d.paramLoading = make([]bool, len(params))
 	d.paramFailed = make([]bool, len(params))
+	d.paramListStates = make([]executeDialogListState, len(params))
 
 	defaultStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
 	for i, p := range params {
@@ -118,6 +138,14 @@ func NewExecuteDialog(wf store.Workflow, width int, theme Theme) ExecuteDialogMo
 		case template.ParamDynamic:
 			d.paramLoading[i] = true
 			ti.Placeholder = "Loading..."
+		case template.ParamList:
+			d.paramListStates[i] = newExecuteDialogListState(p)
+			if p.Default != "" {
+				ti.SetValue(p.Default)
+				ti.TextStyle = defaultStyle
+				ti.CursorEnd()
+			}
+			ti.Placeholder = "Choose from list"
 		default:
 			if p.Default != "" {
 				ti.SetValue(p.Default)
@@ -126,11 +154,9 @@ func NewExecuteDialog(wf store.Workflow, width int, theme Theme) ExecuteDialogMo
 			}
 		}
 
-		if i == 0 {
-			ti.Focus()
-		}
 		d.paramInputs[i] = ti
 	}
+	d.focusParam(0)
 
 	return d
 }
@@ -167,18 +193,231 @@ func executeDialogDynamic(paramIndex int, command string) executeDialogDynamicMs
 		return executeDialogDynamicMsg{paramIndex: paramIndex, err: fmt.Errorf("dynamic command failed: %w", err)}
 	}
 
-	var options []string
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			options = append(options, line)
+	options := strings.FieldsFunc(string(output), func(r rune) bool { return r == '\n' || r == '\r' })
+	filtered := make([]string, 0, len(options))
+	for i := range options {
+		trimmed := strings.TrimSpace(options[i])
+		if trimmed != "" {
+			filtered = append(filtered, trimmed)
 		}
 	}
-	if len(options) == 0 {
+	if len(filtered) == 0 {
 		return executeDialogDynamicMsg{paramIndex: paramIndex, err: fmt.Errorf("dynamic command returned no output")}
 	}
-	return executeDialogDynamicMsg{paramIndex: paramIndex, options: options}
+	return executeDialogDynamicMsg{paramIndex: paramIndex, options: filtered}
+}
+
+func newExecuteDialogListState(p template.Param) executeDialogListState {
+	filter := textinput.New()
+	filter.Placeholder = "Filter rows..."
+	filter.CharLimit = 256
+	filter.Prompt = "filter> "
+
+	state := executeDialogListState{filterInput: filter}
+	state.load(p)
+	return state
+}
+
+func (s *executeDialogListState) load(p template.Param) {
+	source, err := parammeta.LoadListSource(p.ListCmd, p.ListSkipHeader)
+	if err != nil {
+		var sourceErr *parammeta.ListSourceError
+		if errors.As(err, &sourceErr) {
+			s.loadErrShort = sourceErr.Short
+			s.loadErrDetail = sourceErr.Detail
+		} else {
+			s.loadErrShort = err.Error()
+		}
+		return
+	}
+	s.allRows = append([]parammeta.ListRow(nil), source.Rows...)
+	s.emptyAfterSkip = source.EmptyAfterSkip
+	s.applyFilter()
+}
+
+func (s *executeDialogListState) focus() {
+	s.filterInput.Focus()
+}
+
+func (s *executeDialogListState) blur() {
+	s.filterInput.Blur()
+}
+
+func (s executeDialogListState) hasLoadError() bool {
+	return s.loadErrShort != ""
+}
+
+func (s executeDialogListState) hasConfirmation() bool {
+	return s.confirmValue != ""
+}
+
+func (s *executeDialogListState) clearConfirmation() {
+	s.confirmValue = ""
+}
+
+func (s *executeDialogListState) applyFilter() {
+	s.visibleRows = s.visibleRows[:0]
+	query := strings.TrimSpace(s.filterInput.Value())
+	if query == "" {
+		s.visibleRows = append(s.visibleRows, s.allRows...)
+	} else {
+		matches := fuzzy.FindFrom(query, executeDialogListSource(s.allRows))
+		for _, match := range matches {
+			if match.Index >= 0 && match.Index < len(s.allRows) {
+				s.visibleRows = append(s.visibleRows, s.allRows[match.Index])
+			}
+		}
+	}
+	if len(s.visibleRows) == 0 {
+		s.cursor = 0
+		return
+	}
+	if s.cursor >= len(s.visibleRows) {
+		s.cursor = len(s.visibleRows) - 1
+	}
+	if s.cursor < 0 {
+		s.cursor = 0
+	}
+}
+
+type executeDialogListSource []parammeta.ListRow
+
+func (rs executeDialogListSource) String(i int) string { return rs[i].Raw }
+func (rs executeDialogListSource) Len() int            { return len(rs) }
+
+func (s *executeDialogListState) moveCursor(delta int) {
+	if len(s.visibleRows) == 0 {
+		return
+	}
+	s.cursor += delta
+	if s.cursor < 0 {
+		s.cursor = len(s.visibleRows) - 1
+	}
+	if s.cursor >= len(s.visibleRows) {
+		s.cursor = 0
+	}
+	s.numberBuffer = ""
+	s.parseError = ""
+}
+
+func (s *executeDialogListState) appendNumberSelection(digit rune) {
+	s.numberBuffer += string(digit)
+	idx, err := strconv.Atoi(s.numberBuffer)
+	if err == nil && idx >= 1 && idx <= len(s.visibleRows) {
+		s.cursor = idx - 1
+		s.parseError = ""
+	}
+}
+
+func (s *executeDialogListState) deleteNumberSelection() bool {
+	if s.numberBuffer == "" {
+		return false
+	}
+	runes := []rune(s.numberBuffer)
+	s.numberBuffer = string(runes[:len(runes)-1])
+	if s.numberBuffer == "" {
+		return true
+	}
+	idx, err := strconv.Atoi(s.numberBuffer)
+	if err == nil && idx >= 1 && idx <= len(s.visibleRows) {
+		s.cursor = idx - 1
+	}
+	return true
+}
+
+func (s *executeDialogListState) updateFilter(msg tea.KeyMsg) tea.Cmd {
+	var cmd tea.Cmd
+	s.filterInput, cmd = s.filterInput.Update(msg)
+	s.numberBuffer = ""
+	s.parseError = ""
+	s.applyFilter()
+	return cmd
+}
+
+func (s *executeDialogListState) confirmSelection(p template.Param) bool {
+	if s.hasLoadError() {
+		return false
+	}
+	if len(s.visibleRows) == 0 {
+		s.parseError = s.emptyMessage()
+		return false
+	}
+	selectedIndex := s.cursor
+	if s.numberBuffer != "" {
+		idx, err := strconv.Atoi(s.numberBuffer)
+		if err != nil || idx < 1 || idx > len(s.visibleRows) {
+			s.parseError = fmt.Sprintf("row %q is not visible", s.numberBuffer)
+			return false
+		}
+		selectedIndex = idx - 1
+		s.cursor = selectedIndex
+	}
+	value, err := parammeta.ExtractListValue(s.visibleRows[selectedIndex].Raw, p.ListDelimiter, p.ListFieldIndex)
+	if err != nil {
+		s.parseError = err.Error()
+		s.confirmValue = ""
+		return false
+	}
+	s.parseError = ""
+	s.numberBuffer = ""
+	s.confirmValue = value
+	return true
+}
+
+func (s *executeDialogListState) acceptConfirmedValue() string {
+	value := s.confirmValue
+	s.confirmValue = ""
+	s.parseError = ""
+	s.numberBuffer = ""
+	return value
+}
+
+func (s executeDialogListState) emptyMessage() string {
+	switch {
+	case s.emptyAfterSkip && len(s.allRows) == 0:
+		return "No selectable rows remain after skipping headers."
+	case len(s.allRows) == 0:
+		return "List command returned no selectable rows."
+	case len(s.visibleRows) == 0 && strings.TrimSpace(s.filterInput.Value()) != "":
+		return fmt.Sprintf("No rows match %q.", s.filterInput.Value())
+	default:
+		return "No selectable rows available."
+	}
+}
+
+func executeDialogUsesNumberSelection(msg tea.KeyMsg, currentFilter string) bool {
+	return strings.TrimSpace(currentFilter) == "" && msg.Type == tea.KeyRunes && len(msg.Runes) == 1 && unicode.IsDigit(msg.Runes[0])
+}
+
+func (d *ExecuteDialogModel) focusParam(index int) {
+	if index < 0 || index >= len(d.paramInputs) {
+		return
+	}
+	if d.isListPickerParam(index) {
+		d.paramListStates[index].focus()
+		d.paramInputs[index].Blur()
+		return
+	}
+	d.paramInputs[index].Focus()
+}
+
+func (d *ExecuteDialogModel) blurParam(index int) {
+	if index < 0 || index >= len(d.paramInputs) {
+		return
+	}
+	d.paramInputs[index].Blur()
+	if d.isListPickerParam(index) {
+		d.paramListStates[index].blur()
+	}
+}
+
+func (d *ExecuteDialogModel) moveFocus(next int) {
+	if len(d.paramInputs) == 0 {
+		return
+	}
+	d.blurParam(d.focusedParam)
+	d.focusedParam = (next + len(d.paramInputs)) % len(d.paramInputs)
+	d.focusParam(d.focusedParam)
 }
 
 func (d ExecuteDialogModel) Update(msg tea.Msg) (ExecuteDialogModel, tea.Cmd) {
@@ -221,15 +460,18 @@ func (d ExecuteDialogModel) updateParamFill(msg tea.KeyMsg) (ExecuteDialogModel,
 			return dialogResultMsg{dtype: dialogExecute, confirmed: false}
 		}
 	case "tab":
-		d.paramInputs[d.focusedParam].Blur()
-		d.focusedParam = (d.focusedParam + 1) % len(d.paramInputs)
-		d.paramInputs[d.focusedParam].Focus()
+		d.moveFocus(d.focusedParam + 1)
 		return d, nil
 	case "shift+tab":
-		d.paramInputs[d.focusedParam].Blur()
-		d.focusedParam = (d.focusedParam - 1 + len(d.paramInputs)) % len(d.paramInputs)
-		d.paramInputs[d.focusedParam].Focus()
+		d.moveFocus(d.focusedParam - 1)
 		return d, nil
+	}
+
+	if d.isListPickerParam(d.focusedParam) {
+		return d.updateListParamFill(msg)
+	}
+
+	switch msg.String() {
 	case "up":
 		if d.isListParam(d.focusedParam) {
 			opts := d.paramOptions[d.focusedParam]
@@ -259,9 +501,7 @@ func (d ExecuteDialogModel) updateParamFill(msg tea.KeyMsg) (ExecuteDialogModel,
 			d.renderedCommand = d.liveRender()
 			return d, nil
 		}
-		d.paramInputs[d.focusedParam].Blur()
-		d.focusedParam++
-		d.paramInputs[d.focusedParam].Focus()
+		d.moveFocus(d.focusedParam + 1)
 		return d, nil
 	}
 
@@ -273,6 +513,56 @@ func (d ExecuteDialogModel) updateParamFill(msg tea.KeyMsg) (ExecuteDialogModel,
 	d.paramInputs[d.focusedParam], cmd = d.paramInputs[d.focusedParam].Update(msg)
 	d.updateFocusedTextStyle()
 	return d, cmd
+}
+
+func (d ExecuteDialogModel) updateListParamFill(msg tea.KeyMsg) (ExecuteDialogModel, tea.Cmd) {
+	state := &d.paramListStates[d.focusedParam]
+	param := d.params[d.focusedParam]
+
+	if state.hasConfirmation() && msg.String() != "enter" {
+		state.clearConfirmation()
+	}
+
+	switch msg.String() {
+	case "up":
+		state.moveCursor(-1)
+		return d, nil
+	case "down":
+		state.moveCursor(1)
+		return d, nil
+	case "enter":
+		if state.hasConfirmation() {
+			d.paramInputs[d.focusedParam].SetValue(state.acceptConfirmedValue())
+			if d.focusedParam == len(d.paramInputs)-1 || d.allParamsFilled() {
+				d.phase = phaseActionMenu
+				d.actionCursor = 0
+				d.renderedCommand = d.liveRender()
+				return d, nil
+			}
+			d.moveFocus(d.focusedParam + 1)
+			return d, nil
+		}
+		state.confirmSelection(param)
+		return d, nil
+	case "backspace":
+		if state.deleteNumberSelection() {
+			return d, nil
+		}
+		cmd := state.updateFilter(msg)
+		return d, cmd
+	case "d":
+		if state.hasLoadError() && state.loadErrDetail != "" {
+			state.showErrorDetail = !state.showErrorDetail
+		}
+		return d, nil
+	default:
+		if executeDialogUsesNumberSelection(msg, state.filterInput.Value()) {
+			state.appendNumberSelection(msg.Runes[0])
+			return d, nil
+		}
+		cmd := state.updateFilter(msg)
+		return d, cmd
+	}
 }
 
 func (d ExecuteDialogModel) updateActionMenu(msg tea.KeyMsg) (ExecuteDialogModel, tea.Cmd) {
@@ -334,8 +624,15 @@ func (d ExecuteDialogModel) isListParam(i int) bool {
 	return d.paramTypes[i] == template.ParamDynamic && !d.paramLoading[i] && !d.paramFailed[i] && len(d.paramOptions[i]) > 0
 }
 
+func (d ExecuteDialogModel) isListPickerParam(i int) bool {
+	return i >= 0 && i < len(d.paramTypes) && d.paramTypes[i] == template.ParamList
+}
+
 func (d ExecuteDialogModel) allParamsFilled() bool {
-	for _, input := range d.paramInputs {
+	for i, input := range d.paramInputs {
+		if d.isListPickerParam(i) && d.paramListStates[i].hasLoadError() {
+			return false
+		}
 		if input.Value() == "" {
 			return false
 		}
@@ -446,6 +743,33 @@ func (d ExecuteDialogModel) viewParamFill() string {
 					rows = append(rows, "    "+s.Dim.Render(fmt.Sprintf("(%d/%d)", cur+1, len(opts))))
 				}
 			}
+		case d.isListPickerParam(i):
+			state := d.paramListStates[i]
+			value := d.paramInputs[i].Value()
+			valueStyle := s.Dim
+			if value == "" {
+				switch {
+				case state.hasLoadError():
+					value = state.loadErrShort
+				case state.hasConfirmation():
+					value = state.confirmValue
+				default:
+					value = "Choose from list"
+				}
+			} else {
+				valueStyle = s.Highlight
+			}
+			if state.hasConfirmation() {
+				valueStyle = s.Highlight
+			}
+			desc := ""
+			if p.Default != "" && value == p.Default {
+				desc = s.Dim.Render(" (default)")
+			}
+			rows = append(rows, prefix+label+valueStyle.Render(value)+desc)
+			if isFocused {
+				rows = append(rows, d.renderListParamLines(state)...)
+			}
 		default:
 			desc := ""
 			if p.Default != "" && d.paramInputs[i].Value() == p.Default {
@@ -455,8 +779,75 @@ func (d ExecuteDialogModel) viewParamFill() string {
 		}
 	}
 
-	rows = append(rows, "", s.Dim.Render("[tab] next  [shift+tab] prev  [up/down] select  [enter] submit  [esc] cancel"))
+	if d.isListPickerParam(d.focusedParam) {
+		rows = append(rows, "", s.Dim.Render("type to filter  [1-9] jump  [enter] confirm  [tab] next  [esc] cancel"))
+	} else {
+		rows = append(rows, "", s.Dim.Render("[tab] next  [shift+tab] prev  [up/down] select  [enter] submit  [esc] cancel"))
+	}
 	return lipgloss.JoinVertical(lipgloss.Left, rows...)
+}
+
+func (d ExecuteDialogModel) renderListParamLines(state executeDialogListState) []string {
+	s := d.theme.Styles()
+	lines := []string{"    " + state.filterInput.View()}
+
+	if state.hasLoadError() {
+		lines = append(lines, "    "+s.Dim.Render(state.loadErrShort))
+		if state.showErrorDetail && state.loadErrDetail != "" {
+			for _, line := range strings.Split(state.loadErrDetail, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" {
+					continue
+				}
+				lines = append(lines, "      "+s.Dim.Render(truncateWithEllipsis(trimmed, executeDialogListPreviewMaxWidth)))
+			}
+		}
+		lines = append(lines, "    "+s.Dim.Render("[d] details  [esc] cancel"))
+		return lines
+	}
+
+	if state.hasConfirmation() {
+		lines = append(lines,
+			"    "+s.Highlight.Render("Will insert: ")+s.Highlight.Render(state.confirmValue),
+			"    "+s.Dim.Render("[enter] confirm  [any other key] choose again"),
+		)
+		return lines
+	}
+
+	if state.parseError != "" {
+		lines = append(lines, "    "+s.Dim.Render(state.parseError))
+	}
+	if state.numberBuffer != "" {
+		lines = append(lines, "    "+s.Dim.Render("row "+state.numberBuffer))
+	}
+	if len(state.visibleRows) == 0 {
+		lines = append(lines, "    "+s.Dim.Render(state.emptyMessage()))
+		lines = append(lines, "    "+s.Dim.Render("type to change the filter  [esc] cancel"))
+		return lines
+	}
+
+	start := 0
+	if state.cursor >= executeDialogListVisibleMaxRows {
+		start = state.cursor - executeDialogListVisibleMaxRows + 1
+	}
+	end := start + executeDialogListVisibleMaxRows
+	if end > len(state.visibleRows) {
+		end = len(state.visibleRows)
+	}
+	for i := start; i < end; i++ {
+		prefix := "      "
+		rowStyle := s.Dim
+		if i == state.cursor {
+			prefix = "    " + s.Highlight.Render("❯ ")
+			rowStyle = s.Highlight
+		}
+		label := fmt.Sprintf("%d. %s", i+1, truncateWithEllipsis(state.visibleRows[i].Raw, executeDialogListPreviewMaxWidth))
+		lines = append(lines, prefix+rowStyle.Render(label))
+	}
+	if len(state.visibleRows) > executeDialogListVisibleMaxRows {
+		lines = append(lines, "    "+s.Dim.Render(fmt.Sprintf("showing %d/%d visible rows", end-start, len(state.visibleRows))))
+	}
+	return lines
 }
 
 func (d ExecuteDialogModel) renderPreview() string {
