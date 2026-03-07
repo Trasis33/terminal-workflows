@@ -44,6 +44,30 @@ func TestNewFormModelEditMode(t *testing.T) {
 	assert.Equal(t, 0, m.paramEditor.ParamCount())
 }
 
+func TestNewFormModelEditModeHydratesListArg(t *testing.T) {
+	s := &mockStore{}
+	wf := &store.Workflow{
+		Name:    "infra/pick-pod",
+		Command: "kubectl logs {{pod}}",
+		Args: []store.Arg{{
+			Name:           "pod",
+			Type:           "list",
+			ListCmd:        "kubectl get pods --no-headers",
+			ListDelimiter:  " ",
+			ListFieldIndex: 1,
+			ListSkipHeader: 0,
+		}},
+	}
+
+	m := NewFormModel("edit", wf, s, nil, nil, DefaultTheme())
+	require.Len(t, m.paramEditor.params, 1)
+	assert.Equal(t, "list", m.paramEditor.params[0].paramType)
+	assert.Equal(t, "kubectl get pods --no-headers", m.paramEditor.params[0].listCmd)
+	assert.Equal(t, " ", m.paramEditor.params[0].listDelimiter)
+	assert.Equal(t, 1, m.paramEditor.params[0].listFieldIndex)
+	assert.Zero(t, m.paramEditor.params[0].listSkipHeader)
+}
+
 func TestNewFormModelEditNoFolder(t *testing.T) {
 	s := &mockStore{}
 	wf := &store.Workflow{
@@ -200,6 +224,73 @@ func TestFormModelSaveWorkflowWithArgs(t *testing.T) {
 	assert.Equal(t, "env", savedMsg.workflow.Args[0].Name)
 	assert.Equal(t, "enum", savedMsg.workflow.Args[0].Type)
 	assert.Equal(t, []string{"staging", "prod"}, savedMsg.workflow.Args[0].Options)
+}
+
+func TestFormModelSaveWorkflowWithListArgs(t *testing.T) {
+	saved := make([]store.Workflow, 0)
+	s := &savingMockStore{saved: &saved}
+
+	wf := &store.Workflow{
+		Name:    "test-wf",
+		Command: "deploy {{target}}",
+		Args: []store.Arg{{
+			Name:           "target",
+			Type:           "list",
+			ListCmd:        "printf 'NAME,ID\\napi,42'",
+			ListDelimiter:  ",",
+			ListFieldIndex: 2,
+			ListSkipHeader: 1,
+		}},
+	}
+	m := NewFormModel("edit", wf, s, nil, nil, DefaultTheme())
+
+	m.paramEditor.params[0].listCmd = "printf 'NAME,ID\\nweb,99'"
+	m.paramEditor.params[0].listCmdInput.SetValue("printf 'NAME,ID\\nweb,99'")
+	m.paramEditor.params[0].listDelimiter = "|"
+	m.paramEditor.params[0].listDelimiterInput.SetValue("|")
+	m.paramEditor.params[0].listFieldIndex = 1
+	m.paramEditor.params[0].listFieldIndexInput.SetValue("1")
+	m.paramEditor.params[0].listSkipHeader = 2
+	m.paramEditor.params[0].listSkipHeaderInput.SetValue("2")
+
+	cmd := m.saveWorkflow()
+	msg := cmd()
+	savedMsg := msg.(workflowSavedMsg)
+
+	require.Len(t, savedMsg.workflow.Args, 1)
+	assert.Equal(t, "list", savedMsg.workflow.Args[0].Type)
+	assert.Equal(t, "printf 'NAME,ID\\nweb,99'", savedMsg.workflow.Args[0].ListCmd)
+	assert.Equal(t, "|", savedMsg.workflow.Args[0].ListDelimiter)
+	assert.Equal(t, 1, savedMsg.workflow.Args[0].ListFieldIndex)
+	assert.Equal(t, 2, savedMsg.workflow.Args[0].ListSkipHeader)
+	assert.Nil(t, savedMsg.workflow.Args[0].Options)
+	assert.Empty(t, savedMsg.workflow.Args[0].DynamicCmd)
+}
+
+func TestFormModelSaveWorkflowWithListArgsWholeRowFallback(t *testing.T) {
+	saved := make([]store.Workflow, 0)
+	s := &savingMockStore{saved: &saved}
+
+	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
+	m.vals.name = "pick-row"
+	m.vals.command = "echo {{row}}"
+	m.paramEditor = NewParamEditor([]store.Arg{{
+		Name:           "row",
+		Type:           "list",
+		ListCmd:        "printf 'A|B'",
+		ListDelimiter:  "|",
+		ListFieldIndex: 0,
+		ListSkipHeader: 1,
+	}}, DefaultTheme(), 80)
+
+	cmd := m.saveWorkflow()
+	msg := cmd()
+	savedMsg := msg.(workflowSavedMsg)
+
+	require.Len(t, savedMsg.workflow.Args, 1)
+	assert.Zero(t, savedMsg.workflow.Args[0].ListFieldIndex)
+	assert.Equal(t, "|", savedMsg.workflow.Args[0].ListDelimiter)
+	assert.Equal(t, 1, savedMsg.workflow.Args[0].ListSkipHeader)
 }
 
 func TestFormModelValidation(t *testing.T) {
