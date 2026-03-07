@@ -12,15 +12,48 @@ const (
 	ParamText    ParamType = iota // Free text input (default)
 	ParamEnum                     // Selection from predefined options
 	ParamDynamic                  // Options populated by shell command
+	ParamList                     // Selection from shell-command rows with deferred extraction
 )
+
+// String returns the author-facing name for a parameter type.
+func (t ParamType) String() string {
+	switch t {
+	case ParamEnum:
+		return "enum"
+	case ParamDynamic:
+		return "dynamic"
+	case ParamList:
+		return "list"
+	default:
+		return "text"
+	}
+}
+
+// ParamTypeFromString converts persisted type strings into runtime ParamType values.
+func ParamTypeFromString(s string) ParamType {
+	switch strings.TrimSpace(s) {
+	case "enum":
+		return ParamEnum
+	case "dynamic":
+		return ParamDynamic
+	case "list":
+		return ParamList
+	default:
+		return ParamText
+	}
+}
 
 // Param represents a named parameter extracted from a command template.
 type Param struct {
-	Name       string
-	Type       ParamType
-	Default    string
-	Options    []string // For ParamEnum: the option list
-	DynamicCmd string   // For ParamDynamic: shell command to execute
+	Name           string
+	Type           ParamType
+	Default        string
+	Options        []string // For ParamEnum: the option list
+	DynamicCmd     string   // For ParamDynamic: shell command to execute
+	ListCmd        string   // For ParamList: shell command producing selectable rows
+	ListDelimiter  string   // For ParamList: literal field delimiter
+	ListFieldIndex int      // For ParamList: 1-based extracted field, 0 = whole row
+	ListSkipHeader int      // For ParamList: leading rows removed before selection
 }
 
 // paramRegex matches {{content}} patterns where content is one or more non-} characters.

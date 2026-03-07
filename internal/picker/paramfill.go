@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	parammeta "github.com/fredriklanga/wf/internal/params"
 	"github.com/fredriklanga/wf/internal/template"
 )
 
@@ -24,19 +25,7 @@ type dynamicResultMsg struct {
 
 // initParamFill prepares the parameter fill state from the selected workflow.
 func initParamFill(m *Model) {
-	m.params = template.ExtractParams(m.selected.Command)
-	// Inline template defaults are authoritative; stored defaults fill gaps.
-	for i, p := range m.params {
-		if p.Default != "" {
-			continue
-		}
-		for _, arg := range m.selected.Args {
-			if arg.Name == p.Name && arg.Default != "" {
-				m.params[i].Default = arg.Default
-				break
-			}
-		}
-	}
+	m.params = parammeta.OverlayMetadata(m.selected.Command, m.selected.Args)
 
 	n := len(m.params)
 	m.paramInputs = make([]textinput.Model, n)

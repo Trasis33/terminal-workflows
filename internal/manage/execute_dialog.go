@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	parammeta "github.com/fredriklanga/wf/internal/params"
 	"github.com/fredriklanga/wf/internal/store"
 	"github.com/fredriklanga/wf/internal/template"
 )
@@ -63,18 +64,7 @@ type ExecuteDialogModel struct {
 }
 
 func NewExecuteDialog(wf store.Workflow, width int, theme Theme) ExecuteDialogModel {
-	params := template.ExtractParams(wf.Command)
-	for i, p := range params {
-		if p.Default != "" {
-			continue
-		}
-		for _, arg := range wf.Args {
-			if arg.Name == p.Name && arg.Default != "" {
-				params[i].Default = arg.Default
-				break
-			}
-		}
-	}
+	params := parammeta.OverlayMetadata(wf.Command, wf.Args)
 
 	d := ExecuteDialogModel{
 		workflow: wf,
