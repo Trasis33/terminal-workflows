@@ -105,7 +105,7 @@ Plans:
 Plans:
 - [x] 11-01-PLAN.md — Shared list metadata overlay, command/extraction helpers, and tests
 - [x] 11-02-PLAN.md — Manage editor authoring for list command/delimiter/field index/header skip
-- [ ] 11-03-PLAN.md — Picker/manage runtime list selection, filtering, confirmation, and errors
+- [x] 11-03-PLAN.md — Picker/manage runtime list selection, filtering, confirmation, and errors
 
 ## Progress
 
@@ -118,7 +118,7 @@ Plans:
 | 8. Smart Defaults | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 9. Execute in Manage | v1.1 | 2/2 | Complete | 2026-03-02 |
 | 10. Parameter CRUD & Per-Field AI | v1.1 | 3/3 | Complete | 2026-03-07 |
-| 11. List Picker | 3/3 | Complete   | 2026-03-07 | - |
+| 11. List Picker | v1.1 | 3/3 | Complete | 2026-03-07 |
 
 ## Requirement Coverage
 
