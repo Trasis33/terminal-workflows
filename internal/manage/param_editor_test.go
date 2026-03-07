@@ -414,7 +414,7 @@ func TestParamEditor_VisibleSubFields(t *testing.T) {
 		{"text", []int{subFieldName, subFieldType, subFieldDefault}},
 		{"enum", []int{subFieldName, subFieldType, subFieldDefault, subFieldOptions}},
 		{"dynamic", []int{subFieldName, subFieldType, subFieldDefault, subFieldDynamicCmd}},
-		{"list", []int{subFieldName, subFieldType, subFieldDefault}},
+		{"list", []int{subFieldName, subFieldType, subFieldDefault, subFieldListCmd, subFieldListDelimiter, subFieldListFieldIndex, subFieldListSkipHeader}},
 	}
 
 	for _, tt := range tests {
@@ -424,4 +424,100 @@ func TestParamEditor_VisibleSubFields(t *testing.T) {
 			assert.Equal(t, tt.expected, m.visibleSubFields())
 		})
 	}
+}
+
+func TestParamEditor_ListTypeRoundTrip(t *testing.T) {
+	args := []store.Arg{{
+		Name:           "pod",
+		Type:           "list",
+		Default:        "api-1",
+		ListCmd:        "kubectl get pods --no-headers",
+		ListDelimiter:  " ",
+		ListFieldIndex: 1,
+		ListSkipHeader: 0,
+	}}
+
+	m := NewParamEditor(args, DefaultTheme(), 80)
+	resultArgs := m.ToArgs()
+	require.Len(t, resultArgs, 1)
+	assert.Equal(t, "list", resultArgs[0].Type)
+	assert.Equal(t, "kubectl get pods --no-headers", resultArgs[0].ListCmd)
+	assert.Equal(t, " ", resultArgs[0].ListDelimiter)
+	assert.Equal(t, 1, resultArgs[0].ListFieldIndex)
+	assert.Equal(t, 0, resultArgs[0].ListSkipHeader)
+	assert.Nil(t, resultArgs[0].Options)
+	assert.Empty(t, resultArgs[0].DynamicCmd)
+}
+
+func TestParamEditor_ListTypeSoftStaging(t *testing.T) {
+	m := NewParamEditor([]store.Arg{{
+		Name:           "branch",
+		Type:           "list",
+		ListCmd:        "git branch --format='%(refname:short)'",
+		ListDelimiter:  "/",
+		ListFieldIndex: 2,
+		ListSkipHeader: 1,
+	}}, DefaultTheme(), 80)
+
+	m.params[0].paramType = "text"
+	assert.Equal(t, "git branch --format='%(refname:short)'", m.params[0].listCmd)
+	assert.Equal(t, "/", m.params[0].listDelimiter)
+	assert.Equal(t, 2, m.params[0].listFieldIndex)
+	assert.Equal(t, 1, m.params[0].listSkipHeader)
+
+	resultArgs := m.ToArgs()
+	require.Len(t, resultArgs, 1)
+	assert.Empty(t, resultArgs[0].ListCmd)
+	assert.Empty(t, resultArgs[0].ListDelimiter)
+	assert.Zero(t, resultArgs[0].ListFieldIndex)
+	assert.Zero(t, resultArgs[0].ListSkipHeader)
+
+	m.params[0].paramType = "list"
+	resultArgs = m.ToArgs()
+	assert.Equal(t, "git branch --format='%(refname:short)'", resultArgs[0].ListCmd)
+	assert.Equal(t, "/", resultArgs[0].ListDelimiter)
+	assert.Equal(t, 2, resultArgs[0].ListFieldIndex)
+	assert.Equal(t, 1, resultArgs[0].ListSkipHeader)
+}
+
+func TestParamEditor_ListFieldZeroPreserved(t *testing.T) {
+	m := NewParamEditor([]store.Arg{{Name: "row", Type: "list"}}, DefaultTheme(), 80)
+	m.params[0].listFieldIndexInput.SetValue("0")
+	m.params[0].listSkipHeaderInput.SetValue("2")
+	m.params[0].focusedField = subFieldListFieldIndex
+	m.commitCurrentField()
+	m.params[0].focusedField = subFieldListSkipHeader
+	m.commitCurrentField()
+
+	resultArgs := m.ToArgs()
+	require.Len(t, resultArgs, 1)
+	assert.Zero(t, resultArgs[0].ListFieldIndex)
+	assert.Equal(t, 2, resultArgs[0].ListSkipHeader)
+}
+
+func TestParamEditor_ValidateForSaveListWarnings(t *testing.T) {
+	m := NewParamEditor([]store.Arg{{Name: "pods", Type: "list", ListFieldIndex: 1}}, DefaultTheme(), 80)
+	m.params[0].listCmd = ""
+	m.params[0].listCmdInput.SetValue("")
+	m.params[0].listDelimiter = ""
+	m.params[0].listDelimiterInput.SetValue("")
+	m.params[0].listFieldIndexInput.SetValue("1")
+	m.params[0].listSkipHeaderInput.SetValue("-1")
+
+	warnings := m.ValidateForSave()
+	assert.Contains(t, warnings[0], "no list command")
+	assert.Contains(t, warnings[1], "header skip must be a non-negative integer")
+	assert.Contains(t, warnings[2], "delimiter is empty")
+}
+
+func TestParseListNumber(t *testing.T) {
+	assert.Equal(t, 0, parseListNumber(""))
+	assert.Equal(t, 0, parseListNumber("0"))
+	assert.Equal(t, 3, parseListNumber("3"))
+	assert.Equal(t, 0, parseListNumber("-1"))
+	assert.Equal(t, 0, parseListNumber("abc"))
+	assert.True(t, listNumberInvalid("-1"))
+	assert.True(t, listNumberInvalid("abc"))
+	assert.False(t, listNumberInvalid(""))
+	assert.False(t, listNumberInvalid("0"))
 }

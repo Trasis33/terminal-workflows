@@ -2,6 +2,7 @@ package manage
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -26,11 +27,15 @@ type paramTypeChangedMsg struct {
 
 // Sub-field indices within an expanded parameter.
 const (
-	subFieldName       = iota // Name textinput
-	subFieldType              // Type selector (left/right)
-	subFieldDefault           // Default value textinput
-	subFieldOptions           // Enum options textinput (only for enum type)
-	subFieldDynamicCmd        // Dynamic command textinput (only for dynamic type)
+	subFieldName           = iota // Name textinput
+	subFieldType                  // Type selector (left/right)
+	subFieldDefault               // Default value textinput
+	subFieldOptions               // Enum options textinput (only for enum type)
+	subFieldDynamicCmd            // Dynamic command textinput (only for dynamic type)
+	subFieldListCmd               // List command textinput (only for list type)
+	subFieldListDelimiter         // List delimiter textinput (only for list type)
+	subFieldListFieldIndex        // List field index textinput (only for list type)
+	subFieldListSkipHeader        // List skip-header textinput (only for list type)
 )
 
 // availableTypes lists the parameter types in selector order.
@@ -38,19 +43,27 @@ var availableTypes = []string{"text", "enum", "dynamic", "list"}
 
 // paramEntry represents a single parameter in the editor.
 type paramEntry struct {
-	name        string
-	paramType   string // "text", "enum", "dynamic", "list"
-	defaultVal  string
-	options     []string
-	dynamicCmd  string
-	description string
-	expanded    bool
+	name           string
+	paramType      string // "text", "enum", "dynamic", "list"
+	defaultVal     string
+	options        []string
+	dynamicCmd     string
+	listCmd        string
+	listDelimiter  string
+	listFieldIndex int
+	listSkipHeader int
+	description    string
+	expanded       bool
 
 	// Input widgets for editable fields.
-	nameInput       textinput.Model
-	defaultInput    textinput.Model
-	optionsInput    textinput.Model // comma-separated enum options
-	dynamicCmdInput textinput.Model
+	nameInput           textinput.Model
+	defaultInput        textinput.Model
+	optionsInput        textinput.Model // comma-separated enum options
+	dynamicCmdInput     textinput.Model
+	listCmdInput        textinput.Model
+	listDelimiterInput  textinput.Model
+	listFieldIndexInput textinput.Model
+	listSkipHeaderInput textinput.Model
 
 	// Which sub-field has focus within the expanded view.
 	focusedField int
@@ -129,17 +142,49 @@ func newParamEntry(arg store.Arg) paramEntry {
 	dynInput.CharLimit = 512
 	dynInput.Placeholder = "e.g., git branch --list"
 
+	listCmdInput := textinput.New()
+	listCmdInput.SetValue(arg.ListCmd)
+	listCmdInput.CharLimit = 512
+	listCmdInput.Placeholder = "e.g., kubectl get pods --no-headers"
+
+	listDelimiterInput := textinput.New()
+	listDelimiterInput.SetValue(arg.ListDelimiter)
+	listDelimiterInput.CharLimit = 32
+	listDelimiterInput.Placeholder = "e.g., \t or ,"
+
+	listFieldIndexInput := textinput.New()
+	if arg.ListFieldIndex > 0 {
+		listFieldIndexInput.SetValue(strconv.Itoa(arg.ListFieldIndex))
+	}
+	listFieldIndexInput.CharLimit = 8
+	listFieldIndexInput.Placeholder = "0 or blank = whole row"
+
+	listSkipHeaderInput := textinput.New()
+	if arg.ListSkipHeader > 0 {
+		listSkipHeaderInput.SetValue(strconv.Itoa(arg.ListSkipHeader))
+	}
+	listSkipHeaderInput.CharLimit = 8
+	listSkipHeaderInput.Placeholder = "0"
+
 	return paramEntry{
-		name:            arg.Name,
-		paramType:       pt,
-		defaultVal:      arg.Default,
-		options:         arg.Options,
-		dynamicCmd:      arg.DynamicCmd,
-		description:     arg.Description,
-		nameInput:       ti,
-		defaultInput:    defInput,
-		optionsInput:    optInput,
-		dynamicCmdInput: dynInput,
+		name:                arg.Name,
+		paramType:           pt,
+		defaultVal:          arg.Default,
+		options:             arg.Options,
+		dynamicCmd:          arg.DynamicCmd,
+		listCmd:             arg.ListCmd,
+		listDelimiter:       arg.ListDelimiter,
+		listFieldIndex:      arg.ListFieldIndex,
+		listSkipHeader:      arg.ListSkipHeader,
+		description:         arg.Description,
+		nameInput:           ti,
+		defaultInput:        defInput,
+		optionsInput:        optInput,
+		dynamicCmdInput:     dynInput,
+		listCmdInput:        listCmdInput,
+		listDelimiterInput:  listDelimiterInput,
+		listFieldIndexInput: listFieldIndexInput,
+		listSkipHeaderInput: listSkipHeaderInput,
 	}
 }
 
@@ -187,6 +232,14 @@ func (m ParamEditorModel) forwardToActiveInput(msg tea.Msg) (ParamEditorModel, t
 		p.optionsInput, cmd = p.optionsInput.Update(msg)
 	case subFieldDynamicCmd:
 		p.dynamicCmdInput, cmd = p.dynamicCmdInput.Update(msg)
+	case subFieldListCmd:
+		p.listCmdInput, cmd = p.listCmdInput.Update(msg)
+	case subFieldListDelimiter:
+		p.listDelimiterInput, cmd = p.listDelimiterInput.Update(msg)
+	case subFieldListFieldIndex:
+		p.listFieldIndexInput, cmd = p.listFieldIndexInput.Update(msg)
+	case subFieldListSkipHeader:
+		p.listSkipHeaderInput, cmd = p.listSkipHeaderInput.Update(msg)
 	}
 
 	return m, cmd
@@ -274,6 +327,18 @@ func (m ParamEditorModel) updateEditing(msg tea.KeyMsg) (ParamEditorModel, tea.C
 	case subFieldDynamicCmd:
 		p.dynamicCmdInput, cmd = p.dynamicCmdInput.Update(msg)
 		p.dynamicCmd = p.dynamicCmdInput.Value()
+	case subFieldListCmd:
+		p.listCmdInput, cmd = p.listCmdInput.Update(msg)
+		p.listCmd = p.listCmdInput.Value()
+	case subFieldListDelimiter:
+		p.listDelimiterInput, cmd = p.listDelimiterInput.Update(msg)
+		p.listDelimiter = p.listDelimiterInput.Value()
+	case subFieldListFieldIndex:
+		p.listFieldIndexInput, cmd = p.listFieldIndexInput.Update(msg)
+		p.listFieldIndex = parseListNumber(p.listFieldIndexInput.Value())
+	case subFieldListSkipHeader:
+		p.listSkipHeaderInput, cmd = p.listSkipHeaderInput.Update(msg)
+		p.listSkipHeader = parseListNumber(p.listSkipHeaderInput.Value())
 	}
 
 	return m, cmd
@@ -376,6 +441,13 @@ func (m ParamEditorModel) visibleSubFields() []int {
 		fields = append(fields, subFieldOptions)
 	case "dynamic":
 		fields = append(fields, subFieldDynamicCmd)
+	case "list":
+		fields = append(fields,
+			subFieldListCmd,
+			subFieldListDelimiter,
+			subFieldListFieldIndex,
+			subFieldListSkipHeader,
+		)
 	}
 
 	return fields
@@ -402,6 +474,18 @@ func (m ParamEditorModel) focusSubField() (ParamEditorModel, tea.Cmd) {
 	case subFieldDynamicCmd:
 		p.dynamicCmdInput.Focus()
 		return m, textinput.Blink
+	case subFieldListCmd:
+		p.listCmdInput.Focus()
+		return m, textinput.Blink
+	case subFieldListDelimiter:
+		p.listDelimiterInput.Focus()
+		return m, textinput.Blink
+	case subFieldListFieldIndex:
+		p.listFieldIndexInput.Focus()
+		return m, textinput.Blink
+	case subFieldListSkipHeader:
+		p.listSkipHeaderInput.Focus()
+		return m, textinput.Blink
 	}
 
 	return m, nil
@@ -417,6 +501,10 @@ func (m *ParamEditorModel) blurAllSubFields() {
 	p.defaultInput.Blur()
 	p.optionsInput.Blur()
 	p.dynamicCmdInput.Blur()
+	p.listCmdInput.Blur()
+	p.listDelimiterInput.Blur()
+	p.listFieldIndexInput.Blur()
+	p.listSkipHeaderInput.Blur()
 }
 
 // commitCurrentField saves the value from the current sub-field's input widget.
@@ -437,6 +525,14 @@ func (m *ParamEditorModel) commitCurrentField() {
 		p.options = parseEnumOptions(p.optionsInput.Value())
 	case subFieldDynamicCmd:
 		p.dynamicCmd = p.dynamicCmdInput.Value()
+	case subFieldListCmd:
+		p.listCmd = p.listCmdInput.Value()
+	case subFieldListDelimiter:
+		p.listDelimiter = p.listDelimiterInput.Value()
+	case subFieldListFieldIndex:
+		p.listFieldIndex = parseListNumber(p.listFieldIndexInput.Value())
+	case subFieldListSkipHeader:
+		p.listSkipHeader = parseListNumber(p.listSkipHeaderInput.Value())
 	}
 }
 
@@ -457,6 +553,22 @@ func (m *ParamEditorModel) cancelCurrentField() {
 		p.optionsInput.SetValue(strings.Join(p.options, ", "))
 	case subFieldDynamicCmd:
 		p.dynamicCmdInput.SetValue(p.dynamicCmd)
+	case subFieldListCmd:
+		p.listCmdInput.SetValue(p.listCmd)
+	case subFieldListDelimiter:
+		p.listDelimiterInput.SetValue(p.listDelimiter)
+	case subFieldListFieldIndex:
+		if p.listFieldIndex > 0 {
+			p.listFieldIndexInput.SetValue(strconv.Itoa(p.listFieldIndex))
+		} else {
+			p.listFieldIndexInput.SetValue("")
+		}
+	case subFieldListSkipHeader:
+		if p.listSkipHeader > 0 {
+			p.listSkipHeaderInput.SetValue(strconv.Itoa(p.listSkipHeader))
+		} else {
+			p.listSkipHeaderInput.SetValue("")
+		}
 	}
 }
 
@@ -659,6 +771,10 @@ func (m *ParamEditorModel) blurParamInputs(idx int) {
 	m.params[idx].defaultInput.Blur()
 	m.params[idx].optionsInput.Blur()
 	m.params[idx].dynamicCmdInput.Blur()
+	m.params[idx].listCmdInput.Blur()
+	m.params[idx].listDelimiterInput.Blur()
+	m.params[idx].listFieldIndexInput.Blur()
+	m.params[idx].listSkipHeaderInput.Blur()
 }
 
 // checkDuplicateName returns an error string if the name duplicates another param.
@@ -704,6 +820,21 @@ func (m ParamEditorModel) ValidateForSave() []string {
 		case "dynamic":
 			if p.dynamicCmd == "" {
 				warnings = append(warnings, fmt.Sprintf("'%s' is type dynamic but has no command", p.name))
+			}
+		}
+
+		if p.paramType == "list" {
+			if strings.TrimSpace(p.listCmd) == "" {
+				warnings = append(warnings, fmt.Sprintf("'%s' is type list but has no list command", p.name))
+			}
+			if listNumberInvalid(p.listFieldIndexInput.Value()) {
+				warnings = append(warnings, fmt.Sprintf("'%s' list field index must be a non-negative integer (1-based, 0/blank = whole row)", p.name))
+			}
+			if listNumberInvalid(p.listSkipHeaderInput.Value()) {
+				warnings = append(warnings, fmt.Sprintf("'%s' list header skip must be a non-negative integer", p.name))
+			}
+			if p.listFieldIndex > 0 && strings.TrimSpace(p.listDelimiter) == "" {
+				warnings = append(warnings, fmt.Sprintf("'%s' list field index is set but delimiter is empty — save will fall back to whole-row insertion", p.name))
 			}
 		}
 	}
@@ -907,6 +1038,60 @@ func (m ParamEditorModel) renderExpandedParam(
 		}
 	}
 
+	// List metadata fields (only for list type).
+	if p.paramType == "list" {
+		listCmdGhost := m.getGhostText(idx, "list_cmd")
+		if isEditing && p.focusedField == subFieldListCmd {
+			ghostHint := ""
+			if listCmdGhost != "" {
+				ghostHint = "  " + ghostStyle.Render(listCmdGhost)
+			}
+			lines = append(lines, "    "+accentBg.Render("List Cmd: ")+m.params[idx].listCmdInput.View()+ghostHint)
+		} else {
+			if p.listCmd != "" {
+				lines = append(lines, "    "+dimStyle.Render("List Cmd: ")+p.listCmd)
+			} else if listCmdGhost != "" {
+				lines = append(lines, "    "+dimStyle.Render("List Cmd: ")+ghostStyle.Render(listCmdGhost))
+			} else {
+				lines = append(lines, "    "+dimStyle.Render("List Cmd: ")+warnStyle.Render("(required)"))
+			}
+		}
+
+		if isEditing && p.focusedField == subFieldListDelimiter {
+			lines = append(lines, "    "+accentBg.Render("Delimiter: ")+m.params[idx].listDelimiterInput.View())
+		} else {
+			if p.listDelimiter != "" {
+				lines = append(lines, "    "+dimStyle.Render("Delimiter: ")+fmt.Sprintf("%q", p.listDelimiter))
+			} else {
+				lines = append(lines, "    "+dimStyle.Render("Delimiter: ")+dimStyle.Render("(empty — use whole row)"))
+			}
+		}
+
+		if isEditing && p.focusedField == subFieldListFieldIndex {
+			lines = append(lines, "    "+accentBg.Render("Field: ")+m.params[idx].listFieldIndexInput.View())
+			lines = append(lines, "    "+dimStyle.Render("  1-based; blank or 0 keeps the whole row"))
+		} else {
+			lines = append(lines, "    "+dimStyle.Render("Field: ")+listFieldIndexDisplay(p))
+		}
+
+		if isEditing && p.focusedField == subFieldListSkipHeader {
+			lines = append(lines, "    "+accentBg.Render("Skip Headers: ")+m.params[idx].listSkipHeaderInput.View())
+			lines = append(lines, "    "+dimStyle.Render("  Number of leading rows hidden from selection"))
+		} else {
+			lines = append(lines, "    "+dimStyle.Render("Skip Headers: ")+listSkipHeaderDisplay(p))
+		}
+
+		if listNumberInvalid(p.listFieldIndexInput.Value()) {
+			lines = append(lines, "    "+warnStyle.Render("  field index must be a non-negative integer"))
+		}
+		if listNumberInvalid(p.listSkipHeaderInput.Value()) {
+			lines = append(lines, "    "+warnStyle.Render("  header skip must be a non-negative integer"))
+		}
+		if p.listFieldIndex > 0 && strings.TrimSpace(p.listDelimiter) == "" {
+			lines = append(lines, "    "+warnStyle.Render("  delimiter empty — selection will use the whole row"))
+		}
+	}
+
 	// Show description if present.
 	if p.description != "" {
 		lines = append(lines, "    "+dimStyle.Render("Desc: ")+p.description)
@@ -918,6 +1103,22 @@ func (m ParamEditorModel) renderExpandedParam(
 	}
 	if p.paramType != "dynamic" && p.dynamicCmd != "" {
 		lines = append(lines, "    "+dimStyle.Render("(dynamic cmd preserved: ")+dimStyle.Render(p.dynamicCmd)+dimStyle.Render(")"))
+	}
+	if p.paramType != "list" && (p.listCmd != "" || p.listDelimiter != "" || p.listFieldIndex > 0 || p.listSkipHeader > 0) {
+		listMeta := []string{}
+		if p.listCmd != "" {
+			listMeta = append(listMeta, "cmd="+p.listCmd)
+		}
+		if p.listDelimiter != "" {
+			listMeta = append(listMeta, fmt.Sprintf("delimiter=%q", p.listDelimiter))
+		}
+		if p.listFieldIndex > 0 {
+			listMeta = append(listMeta, fmt.Sprintf("field=%d", p.listFieldIndex))
+		}
+		if p.listSkipHeader > 0 {
+			listMeta = append(listMeta, fmt.Sprintf("skip=%d", p.listSkipHeader))
+		}
+		lines = append(lines, "    "+dimStyle.Render("(list metadata preserved: ")+dimStyle.Render(strings.Join(listMeta, ", "))+dimStyle.Render(")"))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
@@ -1025,6 +1226,11 @@ func (m ParamEditorModel) ToArgs() []store.Arg {
 			arg.Options = p.options
 		case "dynamic":
 			arg.DynamicCmd = p.dynamicCmd
+		case "list":
+			arg.ListCmd = p.listCmd
+			arg.ListDelimiter = p.listDelimiter
+			arg.ListFieldIndex = p.listFieldIndex
+			arg.ListSkipHeader = p.listSkipHeader
 		}
 		// text and list types: no options or dynamic cmd persisted.
 
@@ -1067,6 +1273,44 @@ func typeIndex(t string) int {
 		}
 	}
 	return 0
+}
+
+func parseListNumber(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+func listNumberInvalid(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	n, err := strconv.Atoi(raw)
+	return err != nil || n < 0
+}
+
+func listFieldIndexDisplay(p paramEntry) string {
+	if listNumberInvalid(p.listFieldIndexInput.Value()) {
+		return p.listFieldIndexInput.Value()
+	}
+	if p.listFieldIndex <= 0 {
+		return "whole row"
+	}
+	return fmt.Sprintf("%d (1-based)", p.listFieldIndex)
+}
+
+func listSkipHeaderDisplay(p paramEntry) string {
+	if listNumberInvalid(p.listSkipHeaderInput.Value()) {
+		return p.listSkipHeaderInput.Value()
+	}
+	return strconv.Itoa(p.listSkipHeader)
 }
 
 // setGhostText sets AI suggestion ghost text for a param sub-field.
