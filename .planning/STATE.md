@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish & Power
-status: in_progress
-last_updated: "2026-03-07T19:26:30Z"
+status: completed
+last_updated: "2026-03-07T23:47:02Z"
 progress:
   total_phases: 11
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 40
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-27)
 
 **Core value:** Users can find and execute any saved command workflow in under 3 seconds
-**Current focus:** Phase 11 — List Picker
+**Current focus:** v1.1 complete — Phase 11 List Picker finished
 
 ## Current Position
 
-Phase: 11 of 11 (List Picker) — IN PROGRESS
-Plan: 2 of 3 in current phase — COMPLETE
-Status: Phase 11 in progress
-Last activity: 2026-03-07 — Completed 11-02 manage list authoring controls and round-trip tests
+Phase: 11 of 11 (List Picker) — COMPLETE
+Plan: 3 of 3 in current phase — COMPLETE
+Status: Milestone complete
+Last activity: 2026-03-07 — Completed 11-03 runtime list picker behavior and human verification
 
-Progress: [███████████████████░] 98% (39/40 plans through Phase 11)
+Progress: [████████████████████] 100% (40/40 plans through Phase 11)
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███████████████████░] 98% (39
 | Phase 10 P03 | multi-session | 2 tasks | 8 files |
 | Phase 11 P01 | 6 min | 2 tasks | 11 files |
 | Phase 11 P02 | 6 min | 2 tasks | 3 files |
+| Phase 11 P03 | 4h 23m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 11]: List extraction remains literal and 1-based — Keeps scope aligned with plan and avoids quote-aware parsing complexity in this phase.
 - [Phase 11]: List field index stays author-facing and 1-based, with blank or 0 preserved as whole-row fallback.
 - [Phase 11]: List command, delimiter, field index, and header skip remain isolated from enum/dynamic metadata and soft-stage across type switches until save.
+- [Phase 11]: Runtime list selection uses dedicated picker/manage substates so filtering, renumbering, confirmation, and error handling stay separate from enum rendering.
+- [Phase 11]: List command failures block submission with optional detail reveal, while extraction failures stay inline and retryable on the open list.
 
 ### Pending Todos
 
@@ -93,5 +96,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 11-02-PLAN.md
-Resume with: `/gsd-execute-phase 11` to continue Phase 11 plan 03
+Stopped at: Completed 11-03-PLAN.md
+Resume with: None

@@ -31,7 +31,7 @@ See `.planning/milestones/v1.0-ROADMAP.md` for full details.
 - [x] **Phase 8: Smart Defaults** - Preserve and recall parameter defaults (completed 2026-03-01)
 - [x] **Phase 9: Execute in Manage** - Full execute flow inside manage TUI (completed 2026-03-02)
 - [x] **Phase 10: Parameter CRUD & Per-Field AI** - Add/remove/edit parameters, per-field AI generate (completed 2026-03-07)
-- [ ] **Phase 11: List Picker** - New parameter type with shell command output selection
+- [x] **Phase 11: List Picker** - New parameter type with shell command output selection (completed 2026-03-07)
 
 ## Phase Details
 
@@ -118,7 +118,7 @@ Plans:
 | 8. Smart Defaults | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 9. Execute in Manage | v1.1 | 2/2 | Complete | 2026-03-02 |
 | 10. Parameter CRUD & Per-Field AI | v1.1 | 3/3 | Complete | 2026-03-07 |
-| 11. List Picker | 2/3 | In Progress|  | - |
+| 11. List Picker | 3/3 | Complete   | 2026-03-07 | - |
 
 ## Requirement Coverage
 

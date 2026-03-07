@@ -37,7 +37,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### List Picker
 
 - [x] **LIST-01**: User can define a list picker parameter that runs a shell command and shows output as a selectable list
-- [ ] **LIST-02**: User can select one item from the list during param fill
+- [x] **LIST-02**: User can select one item from the list during param fill
 - [x] **LIST-03**: User can configure column extraction so only a specific field from the selected line is used as the value
 - [x] **LIST-04**: User can configure a custom delimiter for column splitting
 - [x] **LIST-05**: User can configure header line skipping so column headers are not selectable
@@ -117,7 +117,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PFAI-01 | Phase 10 | Pending |
 | PFAI-02 | Phase 10 | Pending |
 | LIST-01 | Phase 11 | Complete |
-| LIST-02 | Phase 11 | Pending |
+| LIST-02 | Phase 11 | Complete |
 | LIST-03 | Phase 11 | Complete |
 | LIST-04 | Phase 11 | Complete |
 | LIST-05 | Phase 11 | Complete |
