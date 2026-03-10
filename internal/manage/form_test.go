@@ -3,6 +3,7 @@ package manage
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fredriklanga/wf/internal/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -315,6 +316,50 @@ func TestFormModelValidation(t *testing.T) {
 	m.vals.command = "echo hello"
 	err = m.validate()
 	assert.NoError(t, err)
+}
+
+func TestFormSpinnerAdvancesOnTickForFieldLoading(t *testing.T) {
+	s := &mockStore{}
+	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
+	m.SetDimensions(80, 24)
+	m.fieldLoading["name"] = true
+
+	v1 := m.View()
+	assert.Contains(t, v1, spinnerFrame(0))
+
+	updated, cmd := m.Update(spinnerTickMsg{scope: spinnerScopeForm})
+	assert.NotNil(t, cmd)
+	assert.Equal(t, 1, updated.spinnerFrame)
+
+	v2 := updated.View()
+	assert.Contains(t, v2, spinnerFrame(1))
+	assert.NotEqual(t, v1, v2)
+
+	updated, cmd = updated.Update(perFieldAIResultMsg{fieldName: "name", value: "suggested"})
+	assert.Nil(t, cmd)
+	assert.Equal(t, 0, updated.spinnerFrame)
+	assert.False(t, updated.hasActiveSpinner())
+	assert.Equal(t, "suggested", updated.ghostText["name"])
+
+	updated, cmd = updated.Update(spinnerTickMsg{scope: spinnerScopeForm})
+	assert.Nil(t, cmd)
+	assert.Equal(t, 0, updated.spinnerFrame)
+}
+
+func TestTriggerPerFieldAIStartsSpinnerTick(t *testing.T) {
+	s := &mockStore{}
+	m := NewFormModel("create", nil, s, nil, nil, DefaultTheme())
+	m.vals.name = "demo"
+	m.focused = fieldDescription
+
+	updated, cmd := m.triggerPerFieldAI()
+	assert.NotNil(t, cmd)
+	assert.True(t, updated.fieldLoading["description"])
+	assert.True(t, updated.hasActiveSpinner())
+
+	msg := cmd()
+	_, ok := msg.(tea.BatchMsg)
+	assert.True(t, ok, "expected batched AI+spinner command, got %T", msg)
 }
 
 // savingMockStore records saved workflows.

@@ -727,3 +727,35 @@ func TestBrowseHintsShowEnterRun(t *testing.T) {
 	v := b.View()
 	assert.Contains(t, v, "enter run")
 }
+
+func TestAIOverlaySpinnerAdvancesOnTick(t *testing.T) {
+	s := &mockStore{}
+	m := New(s, nil, DefaultTheme(), "")
+	m.width = 80
+	m.height = 24
+	m.aiLoading = true
+	m.aiLoadingTask = "Generating with AI..."
+
+	v1 := m.View()
+	assert.Contains(t, v1, spinnerFrame(0)+" Generating with AI...")
+
+	updated, cmd := m.Update(spinnerTickMsg{scope: spinnerScopeGlobal})
+	m = updated.(Model)
+	assert.NotNil(t, cmd)
+
+	v2 := m.View()
+	assert.Contains(t, v2, spinnerFrame(1)+" Generating with AI...")
+	assert.NotEqual(t, v1, v2)
+
+	updated, cmd = m.Update(aiGenerateResultMsg{err: assert.AnError})
+	m = updated.(Model)
+	assert.Nil(t, cmd)
+	assert.False(t, m.aiLoading)
+	assert.Equal(t, 0, m.aiSpinnerFrame)
+	assert.Contains(t, m.browse.aiError, "AI generate failed")
+
+	updated, cmd = m.Update(spinnerTickMsg{scope: spinnerScopeGlobal})
+	m = updated.(Model)
+	assert.Nil(t, cmd)
+	assert.Equal(t, 0, m.aiSpinnerFrame)
+}

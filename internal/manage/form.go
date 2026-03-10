@@ -88,6 +88,7 @@ type FormModel struct {
 
 	// Autofill lock: when true, the form is locked during bulk autofill.
 	autofillLock bool
+	spinnerFrame int
 
 	// Error state for display.
 	err error
@@ -204,11 +205,18 @@ func (m FormModel) Update(msg tea.Msg) (FormModel, tea.Cmd) {
 			if msg.String() == "esc" {
 				m.autofillLock = false
 				m.fieldLoading = make(map[string]bool)
+				m.spinnerFrame = 0
 				return m, nil
 			}
 			return m, nil
 		}
 		return m.handleKey(msg)
+	case spinnerTickMsg:
+		if msg.scope != spinnerScopeForm || !m.hasActiveSpinner() {
+			return m, nil
+		}
+		m.spinnerFrame = nextSpinnerFrame(m.spinnerFrame)
+		return m, spinnerTickCmd(spinnerScopeForm)
 	case perFieldAIResultMsg:
 		return m.handlePerFieldAIResult(msg)
 	case suggestParamsResultMsg:
@@ -516,7 +524,7 @@ func (m FormModel) View() string {
 	// Helper to render field AI indicator.
 	aiIndicator := func(fieldKey string) string {
 		if m.fieldLoading[fieldKey] {
-			return loadingStyle.Render(" ⣾")
+			return loadingStyle.Render(" " + spinnerFrame(m.spinnerFrame))
 		}
 		if ai.IsAvailable() && m.focused == m.fieldIndexForKey(fieldKey) {
 			return labelStyle.Render(" ⚡AI")
@@ -588,7 +596,7 @@ func (m FormModel) View() string {
 	// Autofill button.
 	rows = append(rows, "")
 	if m.autofillLock {
-		rows = append(rows, loadingStyle.Render("  ⣾ Autofilling...  ")+labelStyle.Render("esc to cancel"))
+		rows = append(rows, loadingStyle.Render("  "+spinnerFrame(m.spinnerFrame)+" Autofilling...  ")+labelStyle.Render("esc to cancel"))
 	} else if m.focused == fieldAutofill {
 		autofillBtn := focusLabelStyle.Render("  [ ⚡ Autofill Empty Fields ]")
 		rows = append(rows, autofillBtn)
@@ -795,7 +803,11 @@ func (m FormModel) triggerPerFieldAI() (FormModel, tea.Cmd) {
 	m.err = nil
 	m.fieldLoading[targetField] = true
 	snap := m.formSnapshot()
-	return m, perFieldAICmd(targetField, snap)
+	startSpinner := tea.Cmd(nil)
+	if !m.hasActiveSpinner() || (len(m.fieldLoading) == 1 && m.spinnerFrame == 0) {
+		startSpinner = spinnerTickCmd(spinnerScopeForm)
+	}
+	return m, tea.Batch(perFieldAICmd(targetField, snap), startSpinner)
 }
 
 // triggerParamFieldAI initiates per-field AI generation for the focused param sub-field.
@@ -826,7 +838,11 @@ func (m FormModel) triggerParamFieldAI() (FormModel, tea.Cmd) {
 	snap["param_name"] = p.name
 	snap["param_type"] = p.paramType
 
-	return m, perFieldAICmd(fieldKey, snap)
+	startSpinner := tea.Cmd(nil)
+	if !m.hasActiveSpinner() || (len(m.fieldLoading) == 1 && m.spinnerFrame == 0) {
+		startSpinner = spinnerTickCmd(spinnerScopeForm)
+	}
+	return m, tea.Batch(perFieldAICmd(fieldKey, snap), startSpinner)
 }
 
 // triggerAutofill initiates bulk AI autofill for all empty fields.
@@ -843,6 +859,7 @@ func (m FormModel) triggerAutofill() (FormModel, tea.Cmd) {
 
 	m.err = nil
 	m.autofillLock = true
+	m.spinnerFrame = 0
 
 	// Determine which fields are empty and need filling.
 	var fields []string
@@ -878,7 +895,7 @@ func (m FormModel) triggerAutofill() (FormModel, tea.Cmd) {
 		wf.Name = folder + "/" + wf.Name
 	}
 
-	return m, autofillWorkflowCmd(wf, fields)
+	return m, tea.Batch(autofillWorkflowCmd(wf, fields), spinnerTickCmd(spinnerScopeForm))
 }
 
 // applyGhostText sets a field value from a ghost text suggestion.
@@ -903,6 +920,9 @@ func (m *FormModel) applyGhostText(field formFieldIndex, value string) {
 func (m FormModel) handlePerFieldAIResult(msg perFieldAIResultMsg) (FormModel, tea.Cmd) {
 	// Clear loading state for this field.
 	delete(m.fieldLoading, msg.fieldName)
+	if !m.hasActiveSpinner() {
+		m.spinnerFrame = 0
+	}
 
 	if msg.err != nil {
 		errMsg := msg.err.Error()
@@ -953,6 +973,7 @@ func (m FormModel) handleSuggestParamsResult(msg suggestParamsResultMsg) (FormMo
 func (m FormModel) HandleAutofillResult(result *ai.AutofillResult) FormModel {
 	m.autofillLock = false
 	m.fieldLoading = make(map[string]bool)
+	m.spinnerFrame = 0
 
 	if result == nil {
 		return m
@@ -975,4 +996,8 @@ func (m FormModel) HandleAutofillResult(result *ai.AutofillResult) FormModel {
 	}
 
 	return m
+}
+
+func (m FormModel) hasActiveSpinner() bool {
+	return m.autofillLock || len(m.fieldLoading) > 0
 }

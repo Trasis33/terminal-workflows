@@ -74,8 +74,9 @@ type Model struct {
 	execDialog *ExecuteDialogModel
 
 	// AI loading state.
-	aiLoading     bool
-	aiLoadingTask string
+	aiLoading      bool
+	aiLoadingTask  string
+	aiSpinnerFrame int
 
 	// Flash and result state.
 	flashMsg string
@@ -145,6 +146,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prevState = m.state
 		m.state = viewBrowse
 		m.aiLoading = false
+		m.aiSpinnerFrame = 0
 		return m, nil
 
 	case workflowSavedMsg:
@@ -247,10 +249,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Start autofill with all fields.
 		m.aiLoading = true
 		m.aiLoadingTask = "Auto-filling metadata..."
-		return m, autofillWorkflowCmd(msg.workflow, []string{"name", "description", "tags", "args"})
+		m.aiSpinnerFrame = 0
+		return m, tea.Batch(
+			autofillWorkflowCmd(msg.workflow, []string{"name", "description", "tags", "args"}),
+			spinnerTickCmd(spinnerScopeGlobal),
+		)
 
 	case aiGenerateResultMsg:
 		m.aiLoading = false
+		m.aiSpinnerFrame = 0
 		if msg.err != nil {
 			m.browse.aiError = "AI generate failed: " + msg.err.Error()
 			return m, nil
@@ -273,6 +280,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case aiAutofillResultMsg:
 		m.aiLoading = false
+		m.aiSpinnerFrame = 0
 		if msg.err != nil {
 			// If we're in form view with autofill lock, unlock the form.
 			if m.state == viewCreate || m.state == viewEdit {
@@ -298,6 +306,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.form = NewFormModel("edit", &merged, m.store, tags, folders, m.theme)
 		m.form.SetDimensions(m.width, m.height)
 		return m, m.form.Init()
+
+	case spinnerTickMsg:
+		if msg.scope != spinnerScopeGlobal {
+			break
+		}
+		if !m.aiLoading {
+			return m, nil
+		}
+		m.aiSpinnerFrame = nextSpinnerFrame(m.aiSpinnerFrame)
+		return m, spinnerTickCmd(spinnerScopeGlobal)
 
 	case clearFlashMsg:
 		m.flashMsg = ""
@@ -489,7 +507,8 @@ func (m Model) handleDialogResult(msg dialogResultMsg) (tea.Model, tea.Cmd) {
 		}
 		m.aiLoading = true
 		m.aiLoadingTask = "Generating with AI..."
-		return m, generateWorkflowCmd(description)
+		m.aiSpinnerFrame = 0
+		return m, tea.Batch(generateWorkflowCmd(description), spinnerTickCmd(spinnerScopeGlobal))
 	}
 
 	return m, nil
@@ -534,9 +553,9 @@ func (m Model) loadWorkflows() tea.Cmd {
 func (m Model) View() string {
 	// Show centered loading indicator while AI request is in progress.
 	if m.aiLoading {
-		loadingText := "⣾ Generating with AI..."
+		loadingText := spinnerFrame(m.aiSpinnerFrame) + " Generating with AI..."
 		if m.aiLoadingTask == "Auto-filling metadata..." {
-			loadingText = "⣾ Auto-filling metadata..."
+			loadingText = spinnerFrame(m.aiSpinnerFrame) + " Auto-filling metadata..."
 		}
 		return lipgloss.Place(m.width, m.height,
 			lipgloss.Center, lipgloss.Center,
