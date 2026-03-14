@@ -24,13 +24,21 @@ bindkey -M viins '{{.Key}}' _wf_picker
 bindkey -M vicmd '{{.Key}}' _wf_picker
 
 _wf_manage() {
-  local output
-  output=$(wf manage)
-  local ret=$?
-  if [[ -n "$output" ]]; then
-    LBUFFER="$output"
-    RBUFFER=""
+  local output result_file ret
+  result_file=$(mktemp) || {
+    zle reset-prompt
+    return 1
+  }
+  wf manage --result-file "$result_file"
+  ret=$?
+  if [[ $ret -eq 0 && -s "$result_file" ]]; then
+    output=$(<"$result_file")
+    if [[ -n "$output" ]]; then
+      LBUFFER="$output"
+      RBUFFER=""
+    fi
   fi
+  rm -f -- "$result_file"
   zle reset-prompt
   return $ret
 }
@@ -42,12 +50,17 @@ bindkey -M vicmd '{{.ManageKey}}' _wf_manage
 # Fallback command for terminals that don't pass Alt/Meta reliably.
 # Usage: {{.ManageFallbackUsage}}
 wfm() {
-  local output
-  output=$(wf manage)
-  local ret=$?
-  if [[ -n "$output" ]]; then
-    print -z -- "$output"
+  local output result_file ret
+  result_file=$(mktemp) || return 1
+  wf manage --result-file "$result_file"
+  ret=$?
+  if [[ $ret -eq 0 && -s "$result_file" ]]; then
+    output=$(<"$result_file")
+    if [[ -n "$output" ]]; then
+      print -z -- "$output"
+    fi
   fi
+  rm -f -- "$result_file"
   return $ret
 }
 

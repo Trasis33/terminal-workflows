@@ -19,12 +19,19 @@ bind -m emacs-standard -x '"{{.Key}}": _wf_picker'
 bind -m vi-insert -x '"{{.Key}}": _wf_picker'
 
 _wf_manage() {
-  local output
-  output=$(wf manage)
-  if [[ -n "$output" ]]; then
-    READLINE_LINE="$output"
-    READLINE_POINT=${#READLINE_LINE}
+  local output result_file ret
+  result_file=$(mktemp) || return 1
+  wf manage --result-file "$result_file"
+  ret=$?
+  if [[ $ret -eq 0 && -s "$result_file" ]]; then
+    output=$(<"$result_file")
+    if [[ -n "$output" ]]; then
+      READLINE_LINE="$output"
+      READLINE_POINT=${#READLINE_LINE}
+    fi
   fi
+  rm -f -- "$result_file"
+  return $ret
 }
 bind -m emacs-standard -x '"{{.ManageKey}}": _wf_manage'
 bind -m vi-insert -x '"{{.ManageKey}}": _wf_manage'

@@ -18,11 +18,23 @@ bind {{.Key}} _wf_picker
 bind -M insert {{.Key}} _wf_picker
 
 function _wf_manage
-  set -l output (wf manage | string collect)
-  if test -n "$output"
-    commandline -r $output
+  set -l result_file (mktemp)
+  if test $status -ne 0
+    commandline -f repaint
+    return 1
   end
+
+  wf manage --result-file "$result_file"
+  set -l ret $status
+  if test $ret -eq 0 -a -s "$result_file"
+    set -l output (string collect < "$result_file")
+    if test -n "$output"
+      commandline -r $output
+    end
+  end
+  rm -f -- "$result_file"
   commandline -f repaint
+  return $ret
 end
 bind {{.ManageKey}} _wf_manage
 bind -M insert {{.ManageKey}} _wf_manage

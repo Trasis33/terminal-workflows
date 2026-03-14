@@ -14,7 +14,7 @@ type ModelConfig struct {
 // DefaultModelConfig returns sensible defaults for model selection.
 func DefaultModelConfig() ModelConfig {
 	return ModelConfig{
-		Generate: "gpt-5-mini",
+		Generate: "claude-haiku-4.5",
 		Autofill: "gpt-4.1",
 		Fallback: "gpt-4.1",
 	}
